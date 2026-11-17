@@ -197,6 +197,7 @@ export async function submitEntry(userId: string, competitionId: string, input: 
       ],
     });
     await attachBooster(tx, userId, entry.id, submission.boosterId, submission.boostedOn);
+    if (!existing) await refreshBetPot(tx, competitionId);
     return entry;
   });
 }
@@ -228,6 +229,7 @@ export async function withdrawEntry(userId: string, competitionId: string, entry
     await tx.competitionSelection.deleteMany({ where: { entryId: entry.id } });
     await releaseBooster(tx, entry.id);
     await tx.competitionEntry.delete({ where: { id: entry.id } });
+    await refreshBetPot(tx, competitionId);
   });
 }
 
@@ -374,6 +376,8 @@ export const NewMatchSchema = z.object({
   entryFeeMinor: z.number().int().min(0).max(10_000).default(0),
   /** Paid games only: teams one manager may enter (each paid for). Free games are always 1. */
   maxEntries: z.number().int().min(1).max(20).default(1),
+  /** Bet X: prize pot = this % of all entry fees (paid games). Omit for fixed prizes. */
+  potPct: z.number().int().min(1).max(100).optional(),
   winnerPack: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
   top3Pack: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
   everyonePack: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
@@ -440,6 +444,7 @@ export async function createMatch(adminId: string, input: z.input<typeof NewMatc
         requirements: requirements as never,
         entryFeeMinor: m.entryFeeMinor,
         maxEntries: m.entryFeeMinor > 0 ? m.maxEntries : 1,
+        potPct: m.entryFeeMinor > 0 ? (m.potPct ?? null) : null,
         entryOpensAt: opensAt,
         locksAt,
         status: opensAt <= new Date() ? "OPEN" : "UPCOMING",
@@ -580,4 +585,21 @@ export async function prizeRules(rewards: unknown): Promise<import("@/domain/foo
   return rules
     .filter((r) => (r.cashMinor ?? 0) > 0 || r.packSkuCode)
     .map((r) => ({ rankFrom: r.rankFrom, rankTo: r.rankTo, cashMinor: r.cashMinor, pack: r.packSkuCode ? (skus.find((k) => k.code === r.packSkuCode)?.name ?? "Pack") : undefined }));
+}
+
+
+/**
+ * Bet X (DartsX): the prize pot is a set % of all entry fees taken (50% by default — £100 of entries
+ * makes a £50 pot), kept up to date as managers enter and withdraw. Winner takes it, ties split it;
+ * any pack prizes are kept.
+ */
+export async function refreshBetPot(tx: Pick<typeof db, "competition" | "competitionEntry">, competitionId: string) {
+  const c = await tx.competition.findUnique({ where: { id: competitionId }, select: { potPct: true, entryFeeMinor: true, rewards: true } });
+  if (!c || c.potPct == null || c.entryFeeMinor <= 0) return null;
+  const entries = await tx.competitionEntry.count({ where: { competitionId, status: "ACTIVE" } });
+  const pot = Math.floor((entries * c.entryFeeMinor * c.potPct) / 100);
+  const keep = ((c.rewards as Array<{ rankFrom: number; rankTo: number; cashMinor?: number; packSkuCode?: string }>) ?? []).filter((r) => !r.cashMinor);
+  const rewards = pot > 0 ? [{ rankFrom: 1, rankTo: 1, cashMinor: pot }, ...keep] : keep;
+  await tx.competition.update({ where: { id: competitionId }, data: { rewards: rewards as never } });
+  return { pot, entries, takenMinor: entries * c.entryFeeMinor };
 }

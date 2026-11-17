@@ -201,6 +201,7 @@ export function CreateMatchForm({ gameweeks, leagues, fixtures }: { gameweeks: O
       <S name="budget" label="Free draft budget" options={[{ value: "", label: "Not a draft" }, ...[50, 70, 100, 150].map((n) => ({ value: String(n), label: `£${n}` }))]} />
       <S name="fee" label="Entry" options={[{ value: "0", label: "Free" }, ...[0.5, 1, 2, 5].map((n) => ({ value: String(n), label: `£${n.toFixed(2)}` }))]} />
       <S name="maxEntries" label="Teams per manager (paid games)" options={[1, 2, 3, 5, 10].map((n) => ({ value: String(n), label: n === 1 ? "1 team" : `Up to ${n} teams (each paid)` }))} />
+      <S name="potPct" label="Prize pot (paid games)" options={[{ value: "50", label: "Bet X — 50% of entries" }, { value: "40", label: "Bet X — 40% of entries" }, { value: "60", label: "Bet X — 60% of entries" }, { value: "70", label: "Bet X — 70% of entries" }, { value: "", label: "Fixed prizes (set below)" }]} />
       <S name="winnerPack" label="Winner's pack" options={PACK} />
       <S name="top3Pack" label={"Top 3's pack"} options={PACK} />
       <S name="everyonePack" label="Everyone else's pack" options={PACK} />
@@ -362,6 +363,7 @@ export function SimMatchdayForm({ suggested, canCopy }: { suggested: string; can
       <S name="tier" label="Cards" options={[{ value: "", label: "Any cards" }, ...TIERS.slice(1)]} />
       <I name="fee" label="Entry fee (£, 0 = free)" type="number" min={0} step="0.01" defaultValue="0" />
       <S name="maxEntries" label="Teams per manager (paid games)" options={[1, 2, 3, 5, 10].map((n) => ({ value: String(n), label: n === 1 ? "1 team" : `Up to ${n} teams (each paid)` }))} />
+      <S name="potPct" label="Prize pot (paid games)" options={[{ value: "50", label: "Bet X — 50% of entries" }, { value: "40", label: "Bet X — 40% of entries" }, { value: "60", label: "Bet X — 60% of entries" }, { value: "70", label: "Bet X — 70% of entries" }, { value: "", label: "Fixed prizes (set below)" }]} />
       <I name="prizes" label="Total £ pot — winner takes it, ties split it" placeholder="e.g. 20" />
       <S name="winnerPack" label="Winner's pack" options={PACK} />
       <div className="flex flex-col justify-end gap-2 pb-2 text-sm">

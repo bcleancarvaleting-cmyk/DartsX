@@ -111,6 +111,10 @@ export default async function CompetitionPage({ params, searchParams }: { params
         </nav>
       )}
 
+      {comp.potPct != null && comp.entryFeeMinor > 0 && (
+        <BetPot competitionId={comp.id} pct={comp.potPct} feeMinor={comp.entryFeeMinor} settled={comp.status === "SETTLED"} />
+      )}
+
       {open && comp.entryFeeMinor > 0 && !entry && <EntryFee userId={user.id} competitionId={comp.id} feeMinor={comp.entryFeeMinor} />}
 
       {open ? (
@@ -464,5 +468,23 @@ async function EntryFee({ userId, competitionId, feeMinor }: { userId: string; c
         </div>
       )}
     </section>
+  );
+}
+
+
+/** Bet X: the pot grows with every entry — a set % of all entry fees (winner takes it, ties split). */
+async function BetPot({ competitionId, pct, feeMinor, settled }: { competitionId: string; pct: number; feeMinor: number; settled: boolean }) {
+  const entries = await db.competitionEntry.count({ where: { competitionId, status: "ACTIVE" } });
+  const taken = entries * feeMinor;
+  const pot = Math.floor((taken * pct) / 100);
+  const gbp = (m: number) => `£${(m / 100).toFixed(2)}`;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-gold/50 bg-gold/10 px-5 py-4">
+      <span className="rounded-md bg-gold px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#1a1203]">Bet X</span>
+      <span className="font-display text-3xl font-black italic tabular-nums text-gold">{gbp(pot)}</span>
+      <span className="text-sm text-muted">
+        {settled ? "prize pot" : "prize pot so far"} — {pct}% of {gbp(taken)} in entries ({entries} {entries === 1 ? "team" : "teams"} × {gbp(feeMinor)}). Winner takes it, ties split it.
+      </span>
+    </div>
   );
 }

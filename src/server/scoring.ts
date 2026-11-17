@@ -154,7 +154,10 @@ export async function settleCompetition(competitionId: string, actorId: string |
     totals.sort((a, b) => b.total - a.total);
     // A manager's 2nd, 3rd… team (paid games) gets its own prizes: references carry the team number.
     const ref = (t: { userId: string; entryNo: number }) => (t.entryNo > 1 ? `${t.userId}:${t.entryNo}` : t.userId);
-    const rewards = (comp.rewards as RewardRule[]) ?? [];
+    // Bet X: the pot is worked out from the final number of entries before anything is paid.
+    const { refreshBetPot } = await import("./competitions");
+    await refreshBetPot(tx, competitionId);
+    const rewards = ((await tx.competition.findUniqueOrThrow({ where: { id: competitionId }, select: { rewards: true } })).rewards as RewardRule[] | null) ?? [];
     // The DARTSX house account (admins) plays for bragging rights only: shown in their real place,
     // but never wins a prize — prizes go to the next managers (ties split as usual).
     const house = new Set((await tx.user.findMany({ where: { id: { in: totals.map((t) => t.userId) }, role: "ADMIN" }, select: { id: true } })).map((u) => u.id));

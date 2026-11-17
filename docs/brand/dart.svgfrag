@@ -1,0 +1,10 @@
+<g>
+  <path d="M128,-5 L214,0 L128,5 Z" fill="#e7ebef"/>
+  <rect x="12" y="-22" width="122" height="44" rx="13" fill="url(#barrel)"/>
+  <g stroke="#0b0d10" stroke-opacity=".5" stroke-width="4">
+    <line x1="34" y1="-22" x2="34" y2="22"/><line x1="52" y1="-22" x2="52" y2="22"/><line x1="70" y1="-22" x2="70" y2="22"/><line x1="88" y1="-22" x2="88" y2="22"/><line x1="106" y1="-22" x2="106" y2="22"/>
+  </g>
+  <rect x="-70" y="-9" width="88" height="18" rx="5" fill="#1d2126"/>
+  <path d="M-62,0 L-206,-84 L-150,0 L-206,84 Z" fill="var(--flight)"/>
+  <path d="M-62,0 L-206,-84 L-150,0 Z" fill="#fff" opacity=".2"/>
+</g>

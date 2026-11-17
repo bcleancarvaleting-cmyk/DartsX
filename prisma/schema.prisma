@@ -865,6 +865,9 @@ model Competition {
   createdAt     DateTime          @default(now())
   // Paid games: how many teams one manager may enter (each paid for). Free games stay at 1.
   maxEntries    Int               @default(1)
+  // Bet X (DartsX): the prize pot is this % of all entry fees taken, updated as people enter
+  // (e.g. 50 → £100 of entries makes a £50 pot). Null = fixed prizes set by an admin.
+  potPct        Int?
 
   entries CompetitionEntry[]
 

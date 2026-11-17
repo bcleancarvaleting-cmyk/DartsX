@@ -13,7 +13,7 @@ import { FoundingBadge } from "./founding-badge";
 import { type Theme, ThemeToggle } from "./theme-toggle";
 
 export function Logo({ height = 26 }: { height?: number }) {
-  const width = Math.round((height * 2049) / 347);
+  const width = Math.round((height * 992) / 347);
   return (
     <span className="relative inline-flex" style={{ height, width }}>
       <Image src="/brand/dartsx-dark.png" alt="DARTSX" width={width} height={height} priority className="logo-dark h-full w-auto" />

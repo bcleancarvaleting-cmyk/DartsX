@@ -65,15 +65,15 @@ export async function LaunchPage({ sp }: { sp: LaunchParams }) {
         <HeroBackground image={heroImage} />
         <div className="relative grid items-center gap-10 px-5 pb-10 pt-14 sm:px-10 lg:grid-cols-[1.1fr_1fr] lg:py-16">
           <div className="max-w-xl space-y-5 text-[#f4f5f2]">
-            <span className="tag border-[#adfc07]/60 text-[#adfc07]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#adfc07]" aria-hidden="true" /> {launchAt ? "Kick-off is coming" : "Coming soon"}
+            <span className="tag border-[#22c463]/60 text-[#22c463]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c463]" aria-hidden="true" /> {launchAt ? "Kick-off is coming" : "Coming soon"}
             </span>
             <h1 className="text-[52px] leading-[0.86] sm:text-7xl">
               {invitedClub ? (
                 <>
                   Calling all
                   <br />
-                  <span className="text-[#adfc07]">{invitedClub.name} fans.</span>
+                  <span className="text-[#22c463]">{invitedClub.name} fans.</span>
                 </>
               ) : (
                 <>
@@ -81,7 +81,7 @@ export async function LaunchPage({ sp }: { sp: LaunchParams }) {
                   <br />
                   Every player.
                   <br />
-                  <span className="text-[#adfc07]">One game.</span>
+                  <span className="text-[#22c463]">One game.</span>
                 </>
               )}
             </h1>

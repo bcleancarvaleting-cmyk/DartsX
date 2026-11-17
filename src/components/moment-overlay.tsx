@@ -6,7 +6,7 @@ import { momentShownAction } from "@/app/actions/moments";
 
 type Moment = { id: string; kind: string; icon: string; title: string; subtitle: string; href: string | null; cta: string | null };
 
-const COLOURS = ["#adfc07", "#f2cf63", "#ffffff", "#5ee69a", "#8fe3ff"];
+const COLOURS = ["#22c463", "#f2cf63", "#ffffff", "#5ee69a", "#8fe3ff"];
 
 /**
  * The celebration: light rays, the trophy (or star, rocket, ball) springing in, the headline, and
@@ -61,8 +61,8 @@ export function MomentOverlay({ moment }: { moment: Moment | null }) {
       <div className="moment-card relative flex max-w-md flex-col items-center text-center" onClick={(e) => e.stopPropagation()}>
         <div className="relative flex h-48 w-48 items-center justify-center">
           <span className="moment-rays absolute inset-[-40%] rounded-full" aria-hidden="true" />
-          <span className="absolute inset-6 rounded-full bg-[#adfc07]/20 blur-2xl" aria-hidden="true" />
-          <span className="moment-icon relative text-[110px] leading-none drop-shadow-[0_0_30px_rgba(173,252,7,0.6)]" aria-hidden="true">
+          <span className="absolute inset-6 rounded-full bg-[#22c463]/20 blur-2xl" aria-hidden="true" />
+          <span className="moment-icon relative text-[110px] leading-none drop-shadow-[0_0_30px_rgba(34, 196, 99,0.6)]" aria-hidden="true">
             {moment.icon}
           </span>
         </div>

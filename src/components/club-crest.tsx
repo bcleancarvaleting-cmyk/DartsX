@@ -67,7 +67,7 @@ export function ClubCrest({ crest, id, size = 40, title, className = "" }: { cre
   // The DARTSX house account (admins): the X logo.
   if (crest.house) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src="/icons/icon-192.png" alt={title ?? "DARTSX"} width={size} height={size} className={`rounded-[22%] ring-1 ring-[#adfc07]/40 ${className}`} />;
+    return <img src="/icons/icon-192.png" alt={title ?? "DARTSX"} width={size} height={size} className={`rounded-[22%] ring-1 ring-[#22c463]/40 ${className}`} />;
   }
   const clip = `crest-${id}`;
   const outline =

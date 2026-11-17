@@ -17,7 +17,7 @@ export const CREST_COLOURS = [
   "#E35205", // orange
   "#FDB913", // amber
   "#F2CF63", // gold
-  "#ADFC07", // DARTSX lime
+  "#22c463", // DARTSX lime
   "#00843D", // green
   "#0E7C86", // teal
   "#6CABDD", // sky blue
@@ -47,7 +47,7 @@ export const CrestSchema = z.object({
 });
 
 /** The crest every admin account plays under — the DARTSX X. */
-export const HOUSE_CREST = { shape: "round", pattern: "plain", emblem: "none", primary: "#111111", secondary: "#ADFC07", accent: "#ADFC07", initials: "MX", est: false, house: true } as const;
+export const HOUSE_CREST = { shape: "round", pattern: "plain", emblem: "none", primary: "#111111", secondary: "#22c463", accent: "#22c463", initials: "MX", est: false, house: true } as const;
 export type Crest = z.output<typeof CrestSchema>;
 
 export const ClubNameSchema = z
@@ -83,7 +83,7 @@ const PAIRS: Array<[string, string, string]> = [
   ["#034694", "#FFFFFF", "#F2CF63"],
   ["#132257", "#6CABDD", "#FFFFFF"],
   ["#7A263A", "#6CABDD", "#F2CF63"],
-  ["#111111", "#FFFFFF", "#ADFC07"],
+  ["#111111", "#FFFFFF", "#22c463"],
   ["#00843D", "#FFFFFF", "#FDB913"],
   ["#FDB913", "#111111", "#FFFFFF"],
   ["#5B2C83", "#F2CF63", "#FFFFFF"],

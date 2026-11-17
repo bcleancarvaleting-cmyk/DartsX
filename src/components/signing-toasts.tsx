@@ -86,7 +86,7 @@ export function SigningToasts() {
           </span>
         ) : (
           <span className="min-w-0 text-sm text-white">
-            <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-[#adfc07]">Signed</span>
+            <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-[#22c463]">Signed</span>
             <b className={TONE[shown.tier]}>{shown.player}</b> has signed for <b>{shown.club}</b>
             <span className="block text-[11px] text-white/50">
               {shown.how === "market" ? "from the transfer market" : `from a pack · ${shown.tier.toLowerCase()}`} · {ago(shown.at)}

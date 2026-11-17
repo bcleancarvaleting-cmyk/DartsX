@@ -29,7 +29,7 @@ import { revalueAll } from "./valuation";
 export const DEADLINE_MINUTES = 10;
 
 export async function footballSport() {
-  return db.sport.findUniqueOrThrow({ where: { code: "football" } });
+  return db.sport.upsert({ where: { code: "football" }, create: { code: "football", name: "Football" }, update: {} });
 }
 
 async function requireSimulator() {

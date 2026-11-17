@@ -71,7 +71,7 @@ export function BoosterPackSealed({ packId, expires }: { packId: string; expires
       </div>
     );
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-accent/60 bg-[radial-gradient(80%_60%_at_50%_30%,rgba(173,252,7,.18),transparent_70%)] p-5 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-accent/60 bg-[radial-gradient(80%_60%_at_50%_30%,rgba(34, 196, 99,.18),transparent_70%)] p-5 text-center">
       <span className="text-5xl" aria-hidden="true">
         ⚡
       </span>

@@ -52,7 +52,7 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
     await db.$transaction(async (tx) => {
       const t = await tx.cardTemplate.create({ data: { playerId: p.id, category: tier, maxSupply: MAX_SUPPLY[tier] } });
       // The first release: copies in the pack pool (packs skip the top 10 by ranking).
-      await mintInstances(tx, { templateId: t.id, count: FIRST_RELEASE[tier], state: "AVAILABLE" });
+      await mintInstances(tx, { templateId: t.id, count: d.rank <= 10 ? TOP_TEN_RELEASE : FIRST_RELEASE[tier], state: "AVAILABLE" });
     });
     added++;
   }
@@ -62,6 +62,8 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
 
 /** Copies of each darter put into the pack pool when they're first loaded. */
 export const FIRST_RELEASE = { GOLD: 50, SILVER: 100, BRONZE: 150 } as const;
+/** The world's top 10 are rarer: 25 copies each, only from the Rare pack (and the Oche Shop). */
+export const TOP_TEN_RELEASE = 25;
 
 /** Every darter's card value (≤ £5, by world ranking), recorded when it changes. */
 export async function refreshDartsValues() {

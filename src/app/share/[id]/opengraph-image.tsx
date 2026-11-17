@@ -16,7 +16,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#060708", color: "#f4f5f2", padding: 56 }}>
         <div style={{ display: "flex", alignItems: "center", fontSize: 40, fontWeight: 800, fontStyle: "italic", letterSpacing: 2 }}>
-          MATCH<span style={{ color: "#adfc07" }}>X</span>
+          MATCH<span style={{ color: "#22c463" }}>X</span>
           <span style={{ marginLeft: "auto", fontSize: 22, color: "#a3a8a0", fontStyle: "normal", fontWeight: 600 }}>{o?.pack ?? "Pack opening"}</span>
         </div>
         <div style={{ display: "flex", fontSize: 60, fontWeight: 800, marginTop: 28, lineHeight: 1.05 }}>
@@ -44,7 +44,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", marginTop: "auto", fontSize: 24, color: "#adfc07", fontWeight: 700 }}>Play free at DARTSX · 32 players when you join</div>
+        <div style={{ display: "flex", marginTop: "auto", fontSize: 24, color: "#22c463", fontWeight: 700 }}>Play free at DARTSX · 32 players when you join</div>
       </div>
     ),
     { ...size },

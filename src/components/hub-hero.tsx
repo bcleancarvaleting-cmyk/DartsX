@@ -96,7 +96,7 @@ export async function HubHero({ userId, name, unopened, marketOn, buyNows, aucti
           <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-2">
             <span>
               <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Club value</span>
-              <span className="font-display text-4xl font-black italic tabular-nums text-[#adfc07]">£{pf.value.toFixed(2)}</span>
+              <span className="font-display text-4xl font-black italic tabular-nums text-[#22c463]">£{pf.value.toFixed(2)}</span>
               {change !== null && change !== undefined && <span className={`ml-2 text-sm font-bold ${change >= 0 ? "text-mint" : "text-danger"}`}>{change >= 0 ? "▲" : "▼"} {Math.abs(change)}%</span>}
             </span>
             <span className="text-sm text-white/70">{cards.length} players</span>
@@ -131,7 +131,7 @@ export async function HubHero({ userId, name, unopened, marketOn, buyNows, aucti
                         <b>{c.name}</b> <span className="text-white/50">· {c.clubShort ?? c.clubName ?? ""}</span>
                       </span>
                       <span className="shrink-0 text-[11px] text-white/45">{daysAgo(c.at)} · {c.acquired ?? ""}</span>
-                      <span className="w-14 shrink-0 text-right font-bold tabular-nums text-[#adfc07]">{c.valueMp != null ? `£${c.valueMp.toFixed(2)}` : "—"}</span>
+                      <span className="w-14 shrink-0 text-right font-bold tabular-nums text-[#22c463]">{c.valueMp != null ? `£${c.valueMp.toFixed(2)}` : "—"}</span>
                     </li>
                   ))}
                 </ul>
@@ -241,7 +241,7 @@ function ValueGraph({ series }: { series: number[] }) {
   const y = (v: number) => H - 6 - ((v - min) / span) * (H - 16);
   const line = series.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const up = series[series.length - 1] >= series[0];
-  const colour = up ? "#adfc07" : "#ff5c5c";
+  const colour = up ? "#22c463" : "#ff5c5c";
   return (
     <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
       <div className="flex items-baseline justify-between text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
@@ -310,14 +310,14 @@ function TeamPitch({ name, picks }: { name: string | null; picks: Array<{ isCapt
                   const s = got[k];
                   return (
                     <span key={k} className="flex w-20 flex-col items-center gap-1">
-                      <span className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 text-[10px] font-black ${s ? "border-white bg-[#0b0e0c] text-[#adfc07]" : "border-dashed border-white/50 bg-black/20 text-white/60"}`} style={s?.player.imageUrl ? { background: s.player.club?.primaryColour } : undefined}>
+                      <span className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 text-[10px] font-black ${s ? "border-white bg-[#0b0e0c] text-[#22c463]" : "border-dashed border-white/50 bg-black/20 text-white/60"}`} style={s?.player.imageUrl ? { background: s.player.club?.primaryColour } : undefined}>
                         {s?.player.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={s.player.imageUrl} alt="" className="h-full w-full rounded-full object-cover object-top" loading="lazy" />
                         ) : (
                           pos
                         )}
-                        {s?.isCaptain && <span className="absolute -right-1 -top-1 rounded-full bg-[#adfc07] px-1 text-[9px] font-black text-[#0a0d02]">C</span>}
+                        {s?.isCaptain && <span className="absolute -right-1 -top-1 rounded-full bg-[#22c463] px-1 text-[9px] font-black text-[#0a0d02]">C</span>}
                       </span>
                       <span className="w-full truncate rounded bg-black/55 px-1 text-center text-[10px] font-bold text-white">{s ? s.player.lastName || s.player.displayName : "Pick"}</span>
                     </span>

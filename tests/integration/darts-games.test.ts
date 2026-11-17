@@ -57,6 +57,23 @@ describe("DartsX games", () => {
     expect(got.every((c) => c.template.player.ranking! > 10)).toBe(true);
   });
 
+  it("the £10 Rare pack gives 2 random darters from the world's top 10", async () => {
+    const { userId } = await makeUser("rare");
+    const sku = await withTx(async (tx) => {
+      await ensurePublished(tx, "darts-rare");
+      return tx.packSku.findFirstOrThrow({ where: { code: "darts-rare" } });
+    });
+    expect(sku.priceMinor).toBe(1000);
+    const e = await withTx((tx) => grantPack(tx, { userId, skuCode: "darts-rare", source: "STARTER", sourceRef: "rare1" }));
+    await openPack(userId, e.id);
+    // The starter stable never has the top 10, so every top-10 card came from the Rare pack.
+    const all = await db.cardInstance.findMany({ where: { ownerId: userId }, include: { template: { include: { player: true } } } });
+    expect(all).toHaveLength(8); // 6 starter + 2
+    const got = all.filter((c) => c.template.player.ranking! <= 10);
+    expect(got).toHaveLength(2);
+    expect(new Set(got.map((c) => c.template.playerId)).size).toBe(2);
+  });
+
   it("new managers get a stable of 6 (2 per band, never the top 10) and one of each booster", async () => {
     const { userId } = await makeUser("rookie");
     const cards = await db.cardInstance.findMany({ where: { ownerId: userId }, include: { template: { include: { player: true } } } });

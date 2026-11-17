@@ -49,7 +49,7 @@ export async function ensurePublished(tx: Tx, code: string) {
   if (await tx.packSku.findFirst({ where: { code, version: { gte: p.version } } })) return;
   const sport = darts
     ? await tx.sport.upsert({ where: { code: "darts" }, create: { code: "darts", name: "Darts" }, update: {} })
-    : await tx.sport.findUniqueOrThrow({ where: { code: "football" } });
+    : await tx.sport.upsert({ where: { code: "football" }, create: { code: "football", name: "Football" }, update: {} });
   await tx.packSku.createMany({ data: [{ sportId: sport.id, code: p.code, version: p.version, name: p.name, kind: p.kind, priceMinor: p.priceMinor, config: p.config as never }], skipDuplicates: true });
 }
 
@@ -76,7 +76,7 @@ export async function grantStarterLoans(tx: Tx, userId: string) {
   if (!(await tx.packSku.findFirst({ where: { code: LOAN_PICK_CODE } }))) {
     const { FOOTBALL_PACKS } = await import("@/config/packs");
     const p = FOOTBALL_PACKS.find((x) => x.code === LOAN_PICK_CODE)!;
-    const sport = await tx.sport.findUniqueOrThrow({ where: { code: "football" } });
+    const sport = await tx.sport.upsert({ where: { code: "football" }, create: { code: "football", name: "Football" }, update: {} });
     await tx.packSku.createMany({ data: [{ sportId: sport.id, code: p.code, version: p.version, name: p.name, kind: p.kind, priceMinor: p.priceMinor, config: p.config as never }], skipDuplicates: true });
   }
   return grantPack(tx, { userId, skuCode: LOAN_PICK_CODE, source: "STARTER", sourceRef: `loans:${userId}` });
@@ -223,6 +223,7 @@ function filterSql(filters: SlotFilters, exclude: Set<string>) {
   if (filters.positions?.length) parts.push(Prisma.sql`AND p.position::text = ANY(${filters.positions}::text[])`);
   if (filters.countries?.length) parts.push(Prisma.sql`AND l.country = ANY(${filters.countries}::text[])`);
   if (filters.leagueTiers?.length) parts.push(Prisma.sql`AND l.tier = ANY(${filters.leagueTiers}::int[])`);
+  if (filters.maxRanking) parts.push(Prisma.sql`AND p.ranking IS NOT NULL AND p.ranking <= ${filters.maxRanking}`);
   if (filters.minRanking) parts.push(Prisma.sql`AND (p.ranking IS NULL OR p.ranking > ${filters.minRanking})`);
   if (exclude.size) parts.push(Prisma.sql`AND NOT (p.id = ANY(${[...exclude]}::uuid[]))`);
   return parts.length ? Prisma.join(parts, " ") : Prisma.empty;

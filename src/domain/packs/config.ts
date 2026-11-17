@@ -20,6 +20,8 @@ export const SlotFiltersSchema = z
     leagueTiers: z.array(z.number().int().min(1).max(10)).min(1).optional(),
     /** Darts: only darters ranked below this (e.g. 10 = never the world's top 10; unranked allowed). */
     minRanking: z.number().int().min(1).max(500).optional(),
+    /** Darts: only darters ranked this or higher (e.g. 10 = the world's top 10 — the Rare pack). */
+    maxRanking: z.number().int().min(1).max(500).optional(),
   })
   .strict();
 export type SlotFilters = z.infer<typeof SlotFiltersSchema>;

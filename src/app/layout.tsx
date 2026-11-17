@@ -96,7 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
 function SiteFooter({ loggedIn, credit }: { loggedIn: boolean; credit: string }) {
   const cols: [string, [string, string][]][] = [
-    ["Play", [["Packs", "/packs"], ["Transfers", "/transfers"], ["Matches", "/matches"], ["Matchday Live", "/live"], ["Mega League", "/mega-league"], ["Top performers", "/top-performers"], ["Hall of Fame", "/hall-of-fame"], ["Clubs", "/teams"], ["How it works", "/how-it-works"], ["Guides to DARTSX", "/guides"]]],
+    ["Play", [["Darts games", "/darts"], ["Packs", "/packs"], ["The Oche Shop", "/transfers"], ["Hall of Fame", "/hall-of-fame"], ["How it works", "/how-it-works"], ["Guides to DARTSX", "/guides"]]],
     ["Account", [["My Club", "/account/club"], ["Challenges", "/account/challenges"], ["Wallet", "/account/wallet"], ["Profile", "/account/profile"]]],
     ["Legal", [["Terms", "/legal/terms"], ["Privacy", "/legal/privacy"], ["Responsible play", "/legal/responsible-play"], ["Risk warning", "/legal/risk"], ["Pack odds", "/odds"], ["Report a problem", "/support"]]],
   ];

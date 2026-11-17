@@ -20,7 +20,7 @@ const BG: Record<string, string> = {
     "radial-gradient(60% 45% at 20% 20%, rgba(255,80,160,.35), transparent 70%), radial-gradient(55% 45% at 85% 30%, rgba(80,200,255,.35), transparent 70%), radial-gradient(60% 50% at 50% 95%, rgba(255,220,80,.28), transparent 70%), #07080f",
   DIAMOND: "radial-gradient(70% 55% at 50% 35%, rgba(155,232,255,.35), transparent 70%), radial-gradient(50% 40% at 80% 90%, rgba(200,168,255,.25), transparent 70%), #060b14",
   RUBY: "radial-gradient(70% 55% at 50% 35%, rgba(255,45,85,.38), transparent 70%), radial-gradient(50% 40% at 15% 90%, rgba(200,16,46,.3), transparent 70%), #0d0407",
-  LIME: "radial-gradient(70% 55% at 50% 30%, rgba(173,252,7,.22), transparent 70%), #07080a",
+  LIME: "radial-gradient(70% 55% at 50% 30%, rgba(34, 196, 99,.22), transparent 70%), #07080a",
 };
 
 /** Images from other sites go through our own relay, so the poster can be saved as a picture. */
@@ -121,12 +121,12 @@ export function TopPerformersPoster({ rows, gameweek, format }: { rows: Array<{ 
   const show = rows.slice(0, format === "square" ? 3 : format === "portrait" ? 4 : 5);
   return (
     <Frame format={format} bg="LIME">
-      <p className="text-[30px] font-bold uppercase tracking-[0.3em] text-[#adfc07]">{gameweek ? `Gameweek ${gameweek}` : "This week"}</p>
+      <p className="text-[30px] font-bold uppercase tracking-[0.3em] text-[#22c463]">{gameweek ? `Gameweek ${gameweek}` : "This week"}</p>
       <Headline className="mb-8 text-[104px]">Top performers</Headline>
       <ol className="flex w-full flex-col gap-4">
         {show.map((r, i) => (
           <li key={r.name} className="flex items-center gap-6 rounded-[28px] border border-white/15 bg-white/[.04] px-8 py-5">
-            <span className="w-14 font-display text-[64px] font-black italic text-[#adfc07]">{i + 1}</span>
+            <span className="w-14 font-display text-[64px] font-black italic text-[#22c463]">{i + 1}</span>
             {r.card && <BigCard card={r.card} width={format === "square" ? 100 : 120} />}
             <span className="min-w-0 flex-1">
               <span className="block truncate font-display text-[52px] font-black uppercase leading-none">{r.name}</span>
@@ -145,7 +145,7 @@ export function TopPerformersPoster({ rows, gameweek, format }: { rows: Array<{ 
 export function DropPoster({ card, price, when, format }: { card: CardView; price: string; when: string; format: PosterFormat }) {
   return (
     <Frame format={format} bg="LIME">
-      <Headline className="text-[120px] text-[#adfc07]">Drop alert</Headline>
+      <Headline className="text-[120px] text-[#22c463]">Drop alert</Headline>
       <p className="mb-8 mt-2 text-[32px] font-semibold text-white/85">{when}</p>
       <BigCard card={card} width={format === "story" ? 560 : format === "portrait" ? 470 : 380} />
       <p className="mt-8 font-display text-[64px] font-black">{price}</p>
@@ -162,7 +162,7 @@ export function DroppingTodayPoster({ drops, day, format }: { drops: Array<{ car
   return (
     <Frame format={format} bg="LIME">
       <p className="text-[28px] font-bold uppercase tracking-[0.3em] text-white/70">{day}</p>
-      <Headline className="mb-6 text-[92px] text-[#adfc07]">Players dropping today</Headline>
+      <Headline className="mb-6 text-[92px] text-[#22c463]">Players dropping today</Headline>
       <div className="grid justify-center gap-[14px]" style={{ gridTemplateColumns: `repeat(${cols}, ${width}px)` }}>
         {shown.map((d) => (
           <div key={d.card.id} className="flex flex-col items-center">
@@ -281,7 +281,7 @@ export function WinnersPoster({ number, winners, format }: { number: number; win
     <Frame format={format} bg="LIME">
       <p className="text-[28px] font-bold uppercase tracking-[0.3em] text-white/70">Gameweek {number}</p>
       <Headline className="mb-10 text-[110px]">
-        The <span className="text-[#adfc07]">winners</span>
+        The <span className="text-[#22c463]">winners</span>
       </Headline>
       <div className="w-full space-y-4">
         {rows.map((w) => (
@@ -292,7 +292,7 @@ export function WinnersPoster({ number, winners, format }: { number: number; win
               <span className="block truncate font-display text-[46px] font-black uppercase italic leading-tight">{w.manager}</span>
               {w.club && <span className="block truncate text-[22px] text-white/60">{w.club}</span>}
             </span>
-            <span className="whitespace-nowrap font-display text-[56px] font-black tabular-nums text-[#adfc07]">{w.points}<span className="text-[26px] text-white/60"> pts</span></span>
+            <span className="whitespace-nowrap font-display text-[56px] font-black tabular-nums text-[#22c463]">{w.points}<span className="text-[26px] text-white/60"> pts</span></span>
           </div>
         ))}
       </div>
@@ -342,7 +342,7 @@ export function JoinPoster({ cards, format }: { cards: CardView[]; format: Poste
   return (
     <Frame format={format} bg="LIME" footer="playdartsx.com · 18+">
       <Headline className="text-[120px]">Your club.</Headline>
-      <Headline className="mb-8 text-[120px] text-[#adfc07]">Free.</Headline>
+      <Headline className="mb-8 text-[120px] text-[#22c463]">Free.</Headline>
       <div className="mb-8 flex items-end justify-center gap-5">
         {cards.map((c) => (
           <BigCard key={c.id} card={c} width={format === "square" ? 220 : 260} />
@@ -360,12 +360,12 @@ export function JoinPoster({ cards, format }: { cards: CardView[]; format: Poste
 /** A club advert: "Support {club}? Collect every player." In the club's colours. */
 export function ClubAdPoster({ clubName, code, colour, count, cards, format }: { clubName: string; code: string; colour: string; count: number; cards: CardView[]; format: PosterFormat }) {
   const w = format === "story" ? 300 : format === "portrait" ? 270 : 230;
-  const bg = `radial-gradient(70% 55% at 50% 30%, ${colour}99, transparent 72%), radial-gradient(60% 45% at 50% 100%, rgba(173,252,7,.18), transparent 70%), #07080a`;
+  const bg = `radial-gradient(70% 55% at 50% 30%, ${colour}99, transparent 72%), radial-gradient(60% 45% at 50% 100%, rgba(34, 196, 99,.18), transparent 70%), #07080a`;
   return (
     <Frame format={format} bg={bg} footer={`playdartsx.com/teams/${code.toLowerCase()} · Free to play · 18+`}>
       <p className="text-[30px] font-bold uppercase tracking-[0.3em] text-white/80">{clubName} fans</p>
       <Headline className={`mt-2 ${format === "square" ? "text-[92px]" : "text-[112px]"}`}>Collect every</Headline>
-      <Headline className={`mb-10 text-[#adfc07] ${format === "square" ? "text-[92px]" : "text-[112px]"}`}>{clubName} player.</Headline>
+      <Headline className={`mb-10 text-[#22c463] ${format === "square" ? "text-[92px]" : "text-[112px]"}`}>{clubName} player.</Headline>
       <div className="flex items-end justify-center gap-5">
         {cards.slice(0, 3).map((c) => (
           <BigCard key={c.id} card={c} width={w} />
@@ -383,11 +383,11 @@ export function MatchdayPoster({ d, format }: { d: { manager: string; clubName: 
   const w = format === "story" ? 290 : format === "portrait" ? 260 : 220;
   return (
     <Frame format={format} bg="LIME" footer="playdartsx.com · Free to play · 18+">
-      <p className="text-[30px] font-bold uppercase tracking-[0.3em] text-[#adfc07]">
+      <p className="text-[30px] font-bold uppercase tracking-[0.3em] text-[#22c463]">
         Gameweek {d.gameweek} · {d.live ? "live" : "final"}
       </p>
       <p className="mt-3 text-[34px] font-semibold text-white/80">{d.clubName ?? d.manager}</p>
-      <Headline className={`${format === "square" ? "text-[190px]" : "text-[230px]"} text-[#adfc07]`}>{d.points}</Headline>
+      <Headline className={`${format === "square" ? "text-[190px]" : "text-[230px]"} text-[#22c463]`}>{d.points}</Headline>
       <p className="-mt-2 font-display text-[48px] font-black uppercase italic tracking-wide">points</p>
       <p className="mt-4 rounded-full border border-white/25 px-8 py-3 text-[34px] font-bold">
         #{d.rank.toLocaleString("en-GB")} of {d.entries.toLocaleString("en-GB")} · {d.competition}
@@ -397,7 +397,7 @@ export function MatchdayPoster({ d, format }: { d: { manager: string; clubName: 
           {d.top.map((t) => (
             <div key={t.card.id} className="flex flex-col items-center gap-3">
               <BigCard card={t.card} width={w} />
-              <span className="rounded-full bg-[#adfc07] px-5 py-1.5 font-display text-[34px] font-black italic text-[#0a0d02]">
+              <span className="rounded-full bg-[#22c463] px-5 py-1.5 font-display text-[34px] font-black italic text-[#0a0d02]">
                 {t.points} pts{t.captain ? " · C" : ""}
               </span>
             </div>

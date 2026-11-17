@@ -14,12 +14,12 @@ export function PromoBanner({ code, headline, status, left = 1, slim = false }: 
   if (status === "used") return null;
   if (status === "claimed" || state?.ok) {
     return (
-      <Link href="/packs" className={`promo-glow flex items-center gap-3 rounded-2xl border border-[#adfc07]/70 bg-[#0e1206] px-4 ${slim ? "py-2 text-xs" : "py-3 text-sm"}`}>
+      <Link href="/packs" className={`promo-glow flex items-center gap-3 rounded-2xl border border-[#22c463]/70 bg-[#0e1206] px-4 ${slim ? "py-2 text-xs" : "py-3 text-sm"}`}>
         <span className="text-lg" aria-hidden="true">✅</span>
         <span className="min-w-0 flex-1">
-          <b className="text-[#adfc07]">{code} applied</b> — {left > 1 ? `your next ${left} packs are half price` : "your next pack is half price"}
+          <b className="text-[#22c463]">{code} applied</b> — {left > 1 ? `your next ${left} packs are half price` : "your next pack is half price"}
         </span>
-        <span className="shrink-0 font-black text-[#adfc07]">Packs →</span>
+        <span className="shrink-0 font-black text-[#22c463]">Packs →</span>
       </Link>
     );
   }

@@ -430,7 +430,7 @@ function PlayerToken({ p }: { p: WatchPlayer }) {
         ) : (
           p.club
         )}
-        {p.captain && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#adfc07] text-[10px] font-black text-[#0a0d02]">C</span>}
+        {p.captain && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#22c463] text-[10px] font-black text-[#0a0d02]">C</span>}
         {p.playing && <span className="absolute -bottom-0.5 -left-0.5 h-2.5 w-2.5 animate-pulse rounded-full border border-black bg-danger" title="Playing now" />}
       </span>
       <span className="mt-1 w-full truncate rounded bg-black/60 px-1 text-[11px] font-bold text-white">{p.name.split(" ").slice(-1)[0]}</span>

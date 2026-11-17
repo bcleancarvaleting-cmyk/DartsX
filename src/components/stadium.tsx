@@ -77,8 +77,8 @@ export function StadiumScene({ className = "", arch = false }: { className?: str
         </linearGradient>
         <radialGradient id="flare">
           <stop offset="0" stopColor="#f6ffd6" stopOpacity="0.85" />
-          <stop offset="0.35" stopColor="#adfc07" stopOpacity="0.18" />
-          <stop offset="1" stopColor="#adfc07" stopOpacity="0" />
+          <stop offset="0.35" stopColor="#22c463" stopOpacity="0.18" />
+          <stop offset="1" stopColor="#22c463" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="pitchGlow" cx="0.5" cy="0.2" r="0.7">
           <stop offset="0" stopColor="#d7ff8a" stopOpacity="0.35" />
@@ -101,13 +101,13 @@ export function StadiumScene({ className = "", arch = false }: { className?: str
       {/* Upper and lower tiers */}
       <path d="M-40,350 Q800,250 1640,350 L1640,450 Q800,380 -40,450 Z" fill="#161b21" />
       <path d="M-40,452 Q800,382 1640,452 L1640,560 L-40,560 Z" fill="#1b2128" />
-      <path d="M-40,450 Q800,380 1640,450" stroke="#adfc07" strokeOpacity="0.55" strokeWidth="2" fill="none" />
+      <path d="M-40,450 Q800,380 1640,450" stroke="#22c463" strokeOpacity="0.55" strokeWidth="2" fill="none" />
       {CROWD.map((c, i) => (
         <circle key={i} cx={c.x} cy={c.y} r={c.r} fill={c.fill} opacity={c.o} />
       ))}
       {/* Advertising board */}
       <rect x="-40" y="548" width="1680" height="14" fill="#0a0d10" />
-      <rect x="-40" y="552" width="1680" height="4" fill="#adfc07" opacity="0.6" />
+      <rect x="-40" y="552" width="1680" height="4" fill="#22c463" opacity="0.6" />
       {stripes}
       <rect y="560" width="1600" height="340" fill="url(#pitchGlow)" />
       {/* Pitch markings */}

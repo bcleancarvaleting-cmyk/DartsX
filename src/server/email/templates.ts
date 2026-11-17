@@ -14,10 +14,10 @@ function layout(o: { preheader: string; title: string; paragraphs: string[]; cta
 <span style="display:none;max-height:0;overflow:hidden">${esc(o.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#060708;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#0c0e10;border:1px solid #24282e;border-radius:16px">
-<tr><td style="padding:24px 24px 8px;font-size:22px;font-weight:800;font-style:italic;letter-spacing:1px">MATCH<span style="color:#adfc07">X</span></td></tr>
+<tr><td style="padding:24px 24px 8px;font-size:22px;font-weight:800;font-style:italic;letter-spacing:1px">MATCH<span style="color:#22c463">X</span></td></tr>
 <tr><td style="padding:8px 24px 0;font-size:24px;font-weight:800;line-height:1.2">${esc(o.title)}</td></tr>
 ${o.paragraphs.map((p) => `<tr><td style="padding:12px 24px 0;font-size:15px;line-height:1.55;color:#c9cdc6">${p}</td></tr>`).join("")}
-${o.cta ? `<tr><td style="padding:22px 24px 4px"><a href="${o.cta.href}" style="display:inline-block;background:#adfc07;color:#0a0d02;text-decoration:none;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 22px;border-radius:12px">${esc(o.cta.label)}</a></td></tr>` : ""}
+${o.cta ? `<tr><td style="padding:22px 24px 4px"><a href="${o.cta.href}" style="display:inline-block;background:#22c463;color:#0a0d02;text-decoration:none;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 22px;border-radius:12px">${esc(o.cta.label)}</a></td></tr>` : ""}
 <tr><td style="padding:22px 24px 24px;font-size:12px;line-height:1.5;color:#6c726a">${o.footnote ? `${esc(o.footnote)}<br>` : ""}You're getting this because you have a DARTSX account. Your DARTSX £ balance is spend-only and can't be withdrawn. 18+.${o.unsubscribe ? `<br><a href="${o.unsubscribe}" style="color:#9aa096">Unsubscribe from this email</a>` : ""}</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [o.title, "", ...o.paragraphs.map((p) => p.replace(/<[^>]+>/g, "")), "", o.cta ? `${o.cta.label}: ${o.cta.href}` : "", "", "— DARTSX", o.unsubscribe ? `Unsubscribe: ${o.unsubscribe}` : ""].join("\n");
@@ -33,7 +33,7 @@ export const EMAILS = {
       title: `Welcome to DARTSX, ${d.name}`,
       paragraphs: [
         `Your club is ready. Open your ${b("four free league Starter Packs")}: 8 players each for the Premier League, Championship, League One and League Two — a starting seven and a sub for every league.`,
-        `📱 ${b("Download our app today to get 4 free player picks.")} Only on the app: pick a Premier League, Championship, League One and League Two player from each league's top 50 performers — on loan for your first 4 gameweeks. That's 36 players to start your journey. <a href="${APP_URL}/get-the-app" style="color:#adfc07">How to get the app →</a>`,
+        `📱 ${b("Download our app today to get 4 free player picks.")} Only on the app: pick a Premier League, Championship, League One and League Two player from each league's top 50 performers — on loan for your first 4 gameweeks. That's 36 players to start your journey. <a href="${APP_URL}/get-the-app" style="color:#22c463">How to get the app →</a>`,
         `Then a free booster pack lands every Tuesday: put it on one player to boost their points.`,
         ...(d.verifyUrl ? [`Please confirm your email address so we can reach you about prizes.`] : []),
       ],
@@ -170,7 +170,7 @@ export const EMAILS = {
       paragraphs: [
         `Hi ${esc(d.name)} — you're in. We'll email you the moment DARTSX kicks off, and you'll get ${b(d.gift)} free when you create your club with this email.`,
         `Want to move up? Every friend who joins with your link moves you up ${b(`${d.perFriend} places`)}:`,
-        `<a href="${d.shareUrl}" style="color:#adfc07;word-break:break-all">${esc(d.shareUrl)}</a>`,
+        `<a href="${d.shareUrl}" style="color:#22c463;word-break:break-all">${esc(d.shareUrl)}</a>`,
         `${d.total.toLocaleString("en-GB")} managers are waiting for kick-off.`,
       ],
       cta: { label: "Share my link", href: d.shareUrl },
@@ -210,7 +210,7 @@ export const EMAILS = {
       preheader: `${d.revenue} taken · ${d.signups} new managers · ${d.marketSold.count + d.transfers.count} players sold`,
       title: `DARTSX daily · ${d.day}`,
       paragraphs: [
-        `<span style="font-size:13px;color:#9aa096;text-transform:uppercase;letter-spacing:.12em">Money in (card payments)</span><br><span style="font-size:34px;font-weight:800;color:#adfc07">${esc(d.revenue)}</span><br>Packs by card: ${b(String(d.cardPacks.count))} (${esc(d.cardPacks.total)}) · Top-ups: ${b(String(d.topUps.count))} (${esc(d.topUps.total)})`,
+        `<span style="font-size:13px;color:#9aa096;text-transform:uppercase;letter-spacing:.12em">Money in (card payments)</span><br><span style="font-size:34px;font-weight:800;color:#22c463">${esc(d.revenue)}</span><br>Packs by card: ${b(String(d.cardPacks.count))} (${esc(d.cardPacks.total)}) · Top-ups: ${b(String(d.topUps.count))} (${esc(d.topUps.total)})`,
         `<span style="font-size:13px;color:#9aa096;text-transform:uppercase;letter-spacing:.12em">Managers</span><br>New sign-ups: ${b(String(d.signups))} · Waitlist: ${b(String(d.waitlist))} · Total managers: ${b(d.users.toLocaleString("en-GB"))} · Match entries: ${b(String(d.entries))}${d.signupList.length ? `<br><span style="font-size:13px;color:#9aa096">${d.signupList.map(esc).join("<br>")}${d.signups > d.signupList.length ? `<br>+${d.signups - d.signupList.length} more` : ""}</span>` : ""}`,
         `<span style="font-size:13px;color:#9aa096;text-transform:uppercase;letter-spacing:.12em">Packs bought</span><br>By card: ${b(String(d.cardPacks.count))} · With credit: ${b(String(d.packsCredit))} · With XP: ${b(String(d.packsXp))}`,
         `<span style="font-size:13px;color:#9aa096;text-transform:uppercase;letter-spacing:.12em">Players sold</span><br>DARTSX market &amp; drops: ${b(String(d.marketSold.count))} (${esc(d.marketSold.total)} credit) · Between managers: ${b(String(d.transfers.count))} (${esc(d.transfers.total)}, 5% fees ${esc(d.transfers.fees)})`,

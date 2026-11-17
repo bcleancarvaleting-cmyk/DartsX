@@ -382,18 +382,36 @@ FOOTBALL_PACKS.push(
 export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_CODES.LG1, APP_PICK_CODES.LG2] as const;
 
 /**
- * DartsX packs (darts sport). Product rule: packs NEVER contain the world's top 10 — every slot
- * is filtered to darters ranked 11th or lower. Gold = Contenders (11–25), Silver = Challengers
+ * DartsX packs (darts sport). Product rule: the regular packs NEVER contain the world's top 10 —
+ * every slot is filtered to darters ranked 11th or lower. The top 10 only come in the £10 Rare
+ * pack (2 random top-10 darters, 17 Nov 2026), the Oche Shop, auctions and drops. Gold = Contenders (11–25), Silver = Challengers
  * (26–50), Bronze = Outsiders (51+).
  */
 const NO_TOP_TEN = { minRanking: 10 } as const;
 export const DARTS_STARTER_PACK_CODE = "darts-starter";
+export const DARTS_RARE_PACK_CODE = "darts-rare";
 export const DARTS_PACKS: PackSkuSeed[] = [
+  {
+    code: DARTS_RARE_PACK_CODE,
+    version: 1,
+    name: "Rare Pack",
+    kind: "REGULAR",
+    region: "Darts",
+    priceMinor: 1000,
+    blurb: "2 random darters from the world's top 10. The only pack with the elite.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [{ label: "World top 10", count: 2, base: "GOLD", upgrades: [], filters: { maxRanking: 10 } }],
+    },
+  },
   {
     code: "darts-outsider",
     version: 1,
     name: "Outsider Pack",
     kind: "REGULAR",
+    region: "Darts",
     priceMinor: 199,
     blurb: "5 darters ranked 51+, with a chance of a Challenger.",
     config: {
@@ -411,6 +429,7 @@ export const DARTS_PACKS: PackSkuSeed[] = [
     version: 1,
     name: "Challenger Pack",
     kind: "REGULAR",
+    region: "Darts",
     priceMinor: 399,
     blurb: "5 darters ranked 26–50, with a chance of a Contender.",
     config: {
@@ -428,6 +447,7 @@ export const DARTS_PACKS: PackSkuSeed[] = [
     version: 1,
     name: "Contender Pack",
     kind: "REGULAR",
+    region: "Darts",
     priceMinor: 799,
     blurb: "5 darters: 2 Contenders (ranked 11–25) guaranteed. Never the top 10.",
     config: {

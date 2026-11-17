@@ -107,7 +107,7 @@ export type SetReward = Prisma.JsonValue;
  * current tiers. Completing one pays SET_REWARD_MP_MINOR earned credit. Creates only missing binders.
  */
 export async function ensureClubBinders() {
-  const sport = await db.sport.findUniqueOrThrow({ where: { code: "football" } });
+  const sport = await db.sport.upsert({ where: { code: "football" }, create: { code: "football", name: "Football" }, update: {} });
   const clubs = await db.club.findMany({ orderBy: { name: "asc" } });
   let created = 0;
   for (const club of clubs) {

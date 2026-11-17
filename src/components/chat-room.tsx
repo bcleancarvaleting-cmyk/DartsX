@@ -106,7 +106,7 @@ export function ChatRoom({
             <div key={m.id} className={`group flex gap-3 ${mine ? "flex-row-reverse text-right" : ""}`}>
               {m.house ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-full ring-1 ring-[#adfc07]/50" />
+                <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-full ring-1 ring-[#22c463]/50" />
               ) : (
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-extrabold uppercase text-white"

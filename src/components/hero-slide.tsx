@@ -38,7 +38,7 @@ export function HeroSlide({
           <H className="text-[52px] leading-[0.86] sm:text-7xl">
             {title}
             <br />
-            <span className="text-[#adfc07]">{accent}</span>
+            <span className="text-[#22c463]">{accent}</span>
           </H>
         </div>
         {visual && <div className="flex justify-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:items-center">{visual}</div>}
@@ -48,7 +48,7 @@ export function HeroSlide({
             <ul className="space-y-1.5 text-sm text-white/80">
               {points.map((p, i) => (
                 <li key={i} className="flex items-center gap-2">
-                  <span className="text-[#adfc07]">✓</span> <span className="min-w-0 truncate">{p}</span>
+                  <span className="text-[#22c463]">✓</span> <span className="min-w-0 truncate">{p}</span>
                 </li>
               ))}
             </ul>

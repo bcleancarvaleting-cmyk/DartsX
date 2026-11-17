@@ -103,7 +103,7 @@ export function ScoresTicker({ initial }: { initial: Board }) {
   return (
     <>
       <div className="scores-ticker relative z-30 flex h-9 items-stretch overflow-hidden border-b border-ink-700 bg-[#050607] text-[#f4f5f2]" role="region" aria-label={live ? "Live scores" : "Latest scores"}>
-        <Link href={href} className="ticker-label relative z-10 flex shrink-0 items-center gap-2 bg-[#adfc07] pl-3 pr-6 text-[11px] font-black uppercase italic tracking-[0.14em] text-[#0a0d02]">
+        <Link href={href} className="ticker-label relative z-10 flex shrink-0 items-center gap-2 bg-[#22c463] pl-3 pr-6 text-[11px] font-black uppercase italic tracking-[0.14em] text-[#0a0d02]">
           {live && <span className="h-2 w-2 animate-pulse rounded-full bg-[#e5173f]" aria-hidden="true" />}
           {label}
         </Link>
@@ -128,8 +128,8 @@ export function ScoresTicker({ initial }: { initial: Board }) {
 
       {flash && (
         <div key={flash.key} className="goal-flash pointer-events-none fixed inset-x-0 top-24 z-[60] flex justify-center px-4" role="status" aria-live="assertive">
-          <div className="goal-flash-card rounded-2xl border border-[#adfc07] bg-[#07080a]/95 px-8 py-4 text-center shadow-[0_0_60px_rgba(173,252,7,0.45)]">
-            <p className="font-display text-6xl font-black uppercase italic leading-none text-[#adfc07]">{flash.title}</p>
+          <div className="goal-flash-card rounded-2xl border border-[#22c463] bg-[#07080a]/95 px-8 py-4 text-center shadow-[0_0_60px_rgba(34, 196, 99,0.45)]">
+            <p className="font-display text-6xl font-black uppercase italic leading-none text-[#22c463]">{flash.title}</p>
             <p className="mt-1 font-display text-2xl font-bold uppercase italic tabular-nums text-white">{flash.line}</p>
             {flash.who && <p className="mt-1 text-sm font-semibold text-white/80">⚽ {flash.who}</p>}
           </div>
@@ -139,7 +139,7 @@ export function ScoresTicker({ initial }: { initial: Board }) {
       {toasts.length > 0 && (
         <div className="fixed bottom-28 left-1/2 z-[60] flex w-[min(92vw,420px)] -translate-x-1/2 flex-col gap-2 md:bottom-8" role="status" aria-live="polite">
           {toasts.map((t) => (
-            <Link key={t.key} href="/live" className="points-toast rounded-xl border border-[#adfc07]/70 bg-[#0c0e10] px-4 py-3 text-sm font-bold text-white shadow-2xl">
+            <Link key={t.key} href="/live" className="points-toast rounded-xl border border-[#22c463]/70 bg-[#0c0e10] px-4 py-3 text-sm font-bold text-white shadow-2xl">
               {t.text}
             </Link>
           ))}
@@ -149,7 +149,7 @@ export function ScoresTicker({ initial }: { initial: Board }) {
   );
 }
 
-const TONE: Record<NonNullable<TItem["tone"]>, string> = { lime: "text-[#adfc07]", gold: "text-[#f0cb5a]", silver: "text-[#c9d1d9]", bronze: "text-[#d79a62]", sim: "text-[#8fe3ff]" };
+const TONE: Record<NonNullable<TItem["tone"]>, string> = { lime: "text-[#22c463]", gold: "text-[#f0cb5a]", silver: "text-[#c9d1d9]", bronze: "text-[#d79a62]", sim: "text-[#8fe3ff]" };
 
 function ExtraItem({ t }: { t: TItem }) {
   return (
@@ -157,7 +157,7 @@ function ExtraItem({ t }: { t: TItem }) {
       <span className={`text-[9px] font-extrabold tracking-[0.16em] ${t.kind === "upcoming" && t.tone === "sim" ? "rounded bg-[#8fe3ff] px-1 text-[#04121a]" : "text-white/40"}`}>{t.tag}</span>
       <span className={t.kind === "transfer" ? TONE[t.tone ?? "lime"] : ""}>{t.title}</span>
       {t.sub && <span className="text-white/50">{t.sub}</span>}
-      {t.value && <span className={`rounded bg-white/10 px-1.5 py-0.5 tabular-nums ${t.kind === "transfer" ? "text-[#adfc07]" : TONE[t.tone ?? "lime"]}`}>{t.value}</span>}
+      {t.value && <span className={`rounded bg-white/10 px-1.5 py-0.5 tabular-nums ${t.kind === "transfer" ? "text-[#22c463]" : TONE[t.tone ?? "lime"]}`}>{t.value}</span>}
     </li>
   );
 }
@@ -178,7 +178,7 @@ function TickerItem({ f }: { f: LiveFixture }) {
       {f.status === "SCHEDULED" || f.status === "POSTPONED" ? (
         <span className="rounded bg-white/10 px-1.5 py-0.5 tabular-nums text-white/70">{f.status === "POSTPONED" ? "P–P" : ko}</span>
       ) : (
-        <span className={`rounded px-1.5 py-0.5 font-display text-[15px] font-black italic tabular-nums ${live ? "bg-[#adfc07] text-[#0a0d02]" : "bg-white/15 text-white"}`}>
+        <span className={`rounded px-1.5 py-0.5 font-display text-[15px] font-black italic tabular-nums ${live ? "bg-[#22c463] text-[#0a0d02]" : "bg-white/15 text-white"}`}>
           {f.homeGoals ?? 0}–{f.awayGoals ?? 0}
         </span>
       )}

@@ -10,7 +10,8 @@ import { getSetting } from "@/server/settings";
 import { LOAN_PICK_CODE, PICK_CODES } from "@/config/packs";
 import { Countdown } from "@/components/countdown";
 import { BuyPackButton, ClaimDropButton, CreditPackButton, DevPackButton, OpenPackButton, XpPackButton } from "@/components/pack-buttons";
-import { FOOTBALL_PACKS } from "@/config/packs";
+import { DARTS_PACKS, FOOTBALL_PACKS } from "@/config/packs";
+import { DartsPackArt } from "@/components/darts-pack-art";
 import { advertisedGuarantee, cardCount, parsePackConfig } from "@/domain/packs/config";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
@@ -27,7 +28,7 @@ import { fmtDate, gbp } from "@/lib/view";
 
 export const metadata = { title: "Packs" };
 
-const meta = (code: string) => FOOTBALL_PACKS.find((p) => p.code === code);
+const meta = (code: string) => [...DARTS_PACKS, ...FOOTBALL_PACKS].find((p) => p.code === code);
 
 export default async function PacksPage({ searchParams }: { searchParams: Promise<{ welcome?: string; paid?: string; cancelled?: string }> }) {
   const user = await requireUser();
@@ -59,7 +60,8 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
     regions.set(r, [...(regions.get(r) ?? []), s]);
   }
   const leagueBadges = await packLeagueBadges(skus.map((s) => s.code)).catch(() => ({}) as Record<string, PackLeague[]>);
-  const order = [...regions.keys()].sort((a, b) => (a === "England" ? -1 : b === "England" ? 1 : a.localeCompare(b)));
+  const rankRegion = (r: string) => (r === "Darts" ? 0 : r === "England" ? 1 : 2);
+  const order = [...regions.keys()].sort((a, b) => rankRegion(a) - rankRegion(b) || a.localeCompare(b));
 
   return (
     <div className="space-y-10">
@@ -203,6 +205,7 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
             <div key={region}>
               <h3 className="mb-3 flex items-center gap-3 text-2xl">
                 {region}
+                {region === "Darts" && <span className="font-sans text-xs font-semibold not-italic text-faint">The regular packs never hold the world&apos;s top 10 — only the Rare pack does</span>}
                 {region === "England" && <span className="font-sans text-xs font-semibold not-italic text-faint">Every player from an English league club</span>}
               </h3>
               <div className="grid gap-4 md:grid-cols-3">
@@ -243,6 +246,8 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
                                   </span>
                                 )}
                                 {slot.filters?.topFlightOnly ? " (Premier League)" : ""}
+                                {slot.filters?.maxRanking ? ` (world top ${slot.filters.maxRanking}, one at random)` : ""}
+                                {slot.filters?.minRanking ? ` (never the top ${slot.filters.minRanking})` : ""}
                                 {slot.upgrades.map((u) => ` · ${(u.chanceBp / 100).toFixed(u.chanceBp % 100 ? 1 : 0)}% chance each of ${u.category.toLowerCase()}`).join("")}
                               </li>
                             ))}
@@ -315,6 +320,7 @@ function EnglandCross() {
 }
 
 function PackArt({ code, name, small, leagues }: { code: string; name?: string; small?: boolean; /** League logos for this pack (only leagues it really holds). */ leagues?: PackLeague[] }) {
+  if (code.startsWith("darts-")) return <DartsPackArt code={code} name={name} small={small} />;
   const rare = code.includes("rare");
   const tier = rare ? "rainbow" : code.includes("gold") ? "gold" : code.includes("silver") ? "silver" : code.includes("bronze") ? "bronze" : null;
   const foil = tier ? `foil-${tier}` : "bg-gradient-to-br from-[#d8ff6a] via-accent to-[#5f8f00]";
@@ -325,7 +331,7 @@ function PackArt({ code, name, small, leagues }: { code: string; name?: string; 
   if (app && small) {
     const league = code.replace("football-app-pick-", "").toUpperCase();
     return (
-      <div className="relative flex h-14 w-11 shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg border border-accent/70 bg-[#0b0e0c] shadow-[0_0_14px_rgba(173,252,7,0.35)]" aria-hidden="true">
+      <div className="relative flex h-14 w-11 shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg border border-accent/70 bg-[#0b0e0c] shadow-[0_0_14px_rgba(34, 196, 99,0.35)]" aria-hidden="true">
         <span className="text-base leading-none">📱</span>
         <span className="mt-1 font-display text-[11px] font-black italic leading-none text-lime">{league}</span>
       </div>
@@ -356,7 +362,7 @@ function PackArt({ code, name, small, leagues }: { code: string; name?: string; 
             <span className="self-start rounded-lg bg-black/70 px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-sm">
               <span
                 className="block bg-clip-text font-display text-5xl font-extrabold uppercase italic leading-none text-transparent"
-                style={{ backgroundImage: tier === "bronze" ? "linear-gradient(180deg,#ffd6b0,#e0a46a 45%,#9a5a2c)" : tier === "silver" ? "linear-gradient(180deg,#fff,#d9dee4 45%,#8d96a1)" : tier === "gold" ? "linear-gradient(180deg,#fff5c4,#f2cf63 45%,#a87a1e)" : rare ? "linear-gradient(90deg,#ff5f9e,#ffb35c,#f6ff6b,#5dffa8,#5cc8ff,#a66bff)" : "linear-gradient(180deg,#f4ffd6,#adfc07)" }}
+                style={{ backgroundImage: tier === "bronze" ? "linear-gradient(180deg,#ffd6b0,#e0a46a 45%,#9a5a2c)" : tier === "silver" ? "linear-gradient(180deg,#fff,#d9dee4 45%,#8d96a1)" : tier === "gold" ? "linear-gradient(180deg,#fff5c4,#f2cf63 45%,#a87a1e)" : rare ? "linear-gradient(90deg,#ff5f9e,#ffb35c,#f6ff6b,#5dffa8,#5cc8ff,#a66bff)" : "linear-gradient(180deg,#f4ffd6,#22c463)" }}
               >
                 {(name ?? "").replace("England ", "").replace(" Pack", "")}
               </span>

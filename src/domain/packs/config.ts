@@ -18,6 +18,8 @@ export const SlotFiltersSchema = z
     countries: z.array(z.string().min(2).max(3)).min(1).optional(),
     /** Only players at clubs in leagues of these tiers (1 = Premier League … 4 = League Two). */
     leagueTiers: z.array(z.number().int().min(1).max(10)).min(1).optional(),
+    /** Darts: only darters ranked below this (e.g. 10 = never the world's top 10; unranked allowed). */
+    minRanking: z.number().int().min(1).max(500).optional(),
   })
   .strict();
 export type SlotFilters = z.infer<typeof SlotFiltersSchema>;

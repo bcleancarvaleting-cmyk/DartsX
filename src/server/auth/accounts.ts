@@ -74,10 +74,13 @@ export async function registerUser(input: z.input<typeof RegisterSchema>) {
           crest: adminEmails().includes(data.email) ? { ...HOUSE_CREST } : data.clubName ? suggestedCrests(data.clubName)[0] : undefined,
         },
       });
-      const starter = await grantStarterPack(tx, user.id);
+      // The football starter only where football is loaded (DartsX's own database is darts-only).
+      const starter = (await tx.sport.findUnique({ where: { code: "football" } })) ? await grantStarterPack(tx, user.id) : null;
+      // DartsX: a stable of 6 darters and one of every booster.
+      await (await import("../darts-events")).grantDartsStarter(tx, user.id);
       // Refer a friend: XP for the manager whose link this was.
       if (referrer) await (await import("../referrals")).referralSignupXp(tx, user.id, referrer.id);
-      return { user, starterEntitlementId: starter.id, emailVerificationToken };
+      return { user, starterEntitlementId: starter?.id ?? null, emailVerificationToken };
     });
     // On the waitlist with this email: mark them converted and give the launch gift.
     await (await import("../waitlist")).convertWaitlist(made.user.id, made.user.email).catch(() => false);

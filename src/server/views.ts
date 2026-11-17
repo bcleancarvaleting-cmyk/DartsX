@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { MAX_CARD_VALUE_GBP } from "@/config/tiers";
 import { FINISH_VALUE } from "@/config/tiers";
 import { stampCounts } from "./stamps";
 import { loansLeft } from "./loans";
@@ -96,7 +97,7 @@ export async function enrichCards(cards: CardWithTemplate[]): Promise<CardView[]
     const t = trends.get(valueKey(c.template.playerId, c.template.category));
     return toCardView(c, {
       // Ruby 2×, Diamond 3×, Rainbow 4× the card's usual value.
-      valueMp: t?.mp != null ? Math.round(t.mp * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100 : null,
+      valueMp: t?.mp != null ? Math.min(MAX_CARD_VALUE_GBP, Math.round(t.mp * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100) : null,
       trendPct: t?.trendPct ?? null,
       acquired: c.loanGameweeks ? "Loan" : (acquired.get(c.id) ?? null),
       pointsForYou: points.get(c.id) ?? null,
@@ -106,7 +107,7 @@ export async function enrichCards(cards: CardWithTemplate[]): Promise<CardView[]
       totw: totw.has(c.template.playerId),
       watchers: watchers.get(c.template.playerId) ?? 0,
       risingPct: tips.get(`${c.template.playerId}:${c.template.category}`)?.pct,
-      history: (history.get(valueKey(c.template.playerId, c.template.category)) ?? []).map((v) => Math.round(v * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100),
+      history: (history.get(valueKey(c.template.playerId, c.template.category)) ?? []).map((v) => Math.min(MAX_CARD_VALUE_GBP, Math.round(v * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100)),
     });
   });
 }

@@ -67,7 +67,7 @@ export async function makeUser(name?: string) {
   userSeq++;
   const displayName = name ?? `manager${userSeq}`;
   const r = await registerUser({ email: `${displayName}@test.dev`, password: "correct-horse-battery", displayName });
-  return { userId: r.user.id, starterEntitlementId: r.starterEntitlementId };
+  return { userId: r.user.id, starterEntitlementId: r.starterEntitlementId! };
 }
 
 /** A manager who can use the Transfer list: email confirmed and past the new-account wait. */

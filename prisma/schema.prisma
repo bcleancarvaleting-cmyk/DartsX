@@ -1662,3 +1662,87 @@ model DartsMatch {
   @@index([aId])
   @@index([bId])
 }
+
+// ─── DartsX games ─────────────────────────────────────────────────────────────────────────
+// ROUND: one round of an event, a team of 3 (Contender + Challenger + Outsider), points from that
+// round's matches. EVENT: the whole event (e.g. the World Championship), a stable of 4 darters whose
+// points build up round by round. A card can be in one game at a time (it's locked to the entry until
+// the game settles), so using a darter in five games at once takes five copies.
+enum DartsGameKind {
+  ROUND
+  EVENT
+}
+
+enum DartsGameStatus {
+  OPEN
+  LOCKED
+  SETTLED
+  CANCELLED
+}
+
+model DartsGame {
+  id            String          @id @default(uuid()) @db.Uuid
+  eventId       String          @db.Uuid
+  roundId       String?         @db.Uuid
+  kind          DartsGameKind
+  name          String
+  teamSize      Int             // 3 for a round, 4 for a whole event
+  entryFeeMinor Int             @default(100)
+  // Bet X: prize pot = this % of all entry fees (null = free game / no cash pot).
+  potPct        Int?            @default(50)
+  maxEntries    Int             @default(1)
+  locksAt       DateTime
+  status        DartsGameStatus @default(OPEN)
+  potMinor      Int?            // the final pot, set when it settles
+  settledAt     DateTime?
+  createdAt     DateTime        @default(now())
+
+  entries DartsEntry[]
+
+  @@unique([eventId, roundId, kind])
+  @@index([status, locksAt])
+}
+
+model DartsEntry {
+  id         String    @id @default(uuid()) @db.Uuid
+  gameId     String    @db.Uuid
+  game       DartsGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId     String    @db.Uuid
+  entryNo    Int       @default(1)
+  points     Float     @default(0)
+  rank       Int?
+  prizeMinor Int       @default(0)
+  boosterId  String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  picks DartsPick[]
+
+  @@unique([gameId, userId, entryNo])
+  @@index([userId])
+}
+
+model DartsPick {
+  id       String     @id @default(uuid()) @db.Uuid
+  entryId  String     @db.Uuid
+  entry    DartsEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  cardId   String     @db.Uuid
+  playerId String     @db.Uuid
+  captain  Boolean    @default(false)
+  boosted  Boolean    @default(false)
+  points   Float      @default(0)
+
+  @@unique([entryId, playerId])
+}
+
+// Darts boosters: every new manager starts with one of each; one booster per entry, on one darter.
+model DartsBooster {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  kind        String    // TREBLE_TOP | DOUBLE_TROUBLE | BULLSEYE | LUCKY_ARROWS | HOT_HAND | GIANT_KILLER
+  source      String    // "starter", "weekly", "reward" …
+  usedEntryId String?   @unique @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}

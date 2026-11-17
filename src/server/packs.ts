@@ -43,10 +43,13 @@ export async function grantPack(
 
 /** Publish a catalogue pack on first use, so sign-up never fails on a database that predates it. */
 export async function ensurePublished(tx: Tx, code: string) {
-  const { FOOTBALL_PACKS } = await import("@/config/packs");
-  const p = FOOTBALL_PACKS.find((x) => x.code === code)!;
+  const { FOOTBALL_PACKS, DARTS_PACKS } = await import("@/config/packs");
+  const darts = DARTS_PACKS.some((x) => x.code === code);
+  const p = [...FOOTBALL_PACKS, ...DARTS_PACKS].find((x) => x.code === code)!;
   if (await tx.packSku.findFirst({ where: { code, version: { gte: p.version } } })) return;
-  const sport = await tx.sport.findUniqueOrThrow({ where: { code: "football" } });
+  const sport = darts
+    ? await tx.sport.upsert({ where: { code: "darts" }, create: { code: "darts", name: "Darts" }, update: {} })
+    : await tx.sport.findUniqueOrThrow({ where: { code: "football" } });
   await tx.packSku.createMany({ data: [{ sportId: sport.id, code: p.code, version: p.version, name: p.name, kind: p.kind, priceMinor: p.priceMinor, config: p.config as never }], skipDuplicates: true });
 }
 
@@ -220,6 +223,7 @@ function filterSql(filters: SlotFilters, exclude: Set<string>) {
   if (filters.positions?.length) parts.push(Prisma.sql`AND p.position::text = ANY(${filters.positions}::text[])`);
   if (filters.countries?.length) parts.push(Prisma.sql`AND l.country = ANY(${filters.countries}::text[])`);
   if (filters.leagueTiers?.length) parts.push(Prisma.sql`AND l.tier = ANY(${filters.leagueTiers}::int[])`);
+  if (filters.minRanking) parts.push(Prisma.sql`AND (p.ranking IS NULL OR p.ranking > ${filters.minRanking})`);
   if (exclude.size) parts.push(Prisma.sql`AND NOT (p.id = ANY(${[...exclude]}::uuid[]))`);
   return parts.length ? Prisma.join(parts, " ") : Prisma.empty;
 }
@@ -337,10 +341,12 @@ export async function getOpening(userId: string, openingId: string) {
 
 /** Publish any pack SKU versions from the config that aren't in the database yet. */
 export async function syncPackCatalogue() {
-  const { FOOTBALL_PACKS } = await import("@/config/packs");
-  const sport = await db.sport.findUniqueOrThrow({ where: { code: "football" } });
+  const { FOOTBALL_PACKS, DARTS_PACKS } = await import("@/config/packs");
+  const football = await db.sport.findUnique({ where: { code: "football" } });
+  const darts = await db.sport.findUnique({ where: { code: "darts" } });
   let added = 0;
-  for (const p of FOOTBALL_PACKS) {
+  const all = [...(football ? FOOTBALL_PACKS.map((p) => ({ p, sport: football })) : []), ...(darts ? DARTS_PACKS.map((p) => ({ p, sport: darts })) : [])];
+  for (const { p, sport } of all) {
     const exists = await db.packSku.findUnique({ where: { code_version: { code: p.code, version: p.version } } });
     if (exists) continue;
     await db.packSku.create({ data: { sportId: sport.id, code: p.code, version: p.version, name: p.name, kind: p.kind, priceMinor: p.priceMinor, config: p.config as never } });

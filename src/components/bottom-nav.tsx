@@ -40,7 +40,7 @@ export const NAV_ITEMS = (unopenedPacks = 0): Item[] => [
   { href: "/packs", label: "Packs", match: ["/packs"], icon: I.packs, badge: unopenedPacks || undefined },
   { href: "/transfers", label: "Transfers", match: ["/transfers", "/cards"], icon: I.transfers },
   { href: "/", label: "Home", match: [], icon: I.home },
-  { href: "/matches", label: "Matches", match: ["/matches", "/competitions", "/players"], icon: I.matches },
+  { href: "/darts", label: "Darts", match: ["/darts", "/matches", "/competitions", "/players"], icon: I.matches },
   { href: "/account", label: "My Account", match: ["/account", "/admin", "/moderation"], icon: I.account },
 ];
 

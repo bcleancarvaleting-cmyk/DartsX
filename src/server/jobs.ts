@@ -44,6 +44,7 @@ export async function tick() {
     ["gift drop alerts", async () => (await import("./alerts")).announceGiftDrops()],
     ["weekly boosters", async () => ({ granted: await (await import("./boosters")).grantWeeklyBoosters(), reminded: await (await import("./boosters")).remindExpiringBoosters() })],
     ["squads & transfers (daily)", async () => (await import("./live-data")).dailySquadSync()],
+    ["darts games (lock, throw sim rounds, live points, settle)", async () => (await import("./darts-games")).runDartsJobs()],
     ["expired logins", async () => (await db.session.deleteMany({ where: { expiresAt: { lt: new Date() } } })).count],
   ];
   const out: Record<string, unknown> = {};

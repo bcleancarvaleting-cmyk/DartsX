@@ -1,4 +1,5 @@
 import { assertCanTrade, assertSensiblePrice, reviewSale } from "./market-safety";
+import { MAX_CARD_VALUE_GBP } from "@/config/tiers";
 import { FINISH_VALUE } from "@/config/tiers";
 import { alerts } from "./alerts";
 import { type CardCategory, Prisma } from "@/generated/prisma/client";
@@ -94,7 +95,7 @@ export async function guidePriceFor(cardId: string, tx: Tx | typeof db = db): Pr
   // No valuation and no sales yet = no guide (don't warn against a made-up number).
   if (!val && !sales) return null;
   // A finish is priced off the usual card's value: Ruby 2×, Diamond 3×, Rainbow 4×.
-  if (card.finish) return val ? Math.round(val.valueMp * FINISH_VALUE[card.finish.kind] * 100) : null;
+  if (card.finish) return val ? Math.round(Math.min(MAX_CARD_VALUE_GBP, val.valueMp * FINISH_VALUE[card.finish.kind]) * 100) : null;
   return recommendPrice(val?.valueMp ?? null, sales);
 }
 

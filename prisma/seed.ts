@@ -27,7 +27,16 @@ async function main() {
   await seedWorld(data);
 }
 
+/** DartsX: the darters, their cards and the darts packs (safe on every start). */
+async function darts() {
+  const { seedDarters } = await import("../src/server/darts-events");
+  const { syncPackCatalogue } = await import("../src/server/packs");
+  const r = await seedDarters();
+  console.log(`Darters: ${r.darters} in the rankings, ${r.added} added; packs published: ${await syncPackCatalogue()}`);
+}
+
 main()
+  .then(darts)
   .then(() => db.$disconnect())
   .catch(async (e) => {
     console.error(e);

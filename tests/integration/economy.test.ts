@@ -429,7 +429,7 @@ describe("starter period, Gold pick and referrals", () => {
     const sport = await db.sport.findFirstOrThrow();
     const gw = await db.gameweek.create({ data: { sportId: sport.id, season: "r", number: 1, startsAt: new Date(), endsAt: new Date(Date.now() + 86_400_000), status: "OPEN" } });
     const comp = await db.competition.create({ data: { sportId: sport.id, gameweekId: gw.id, code: "ref-c", name: "R", format: "OPEN", rosterRules: "football-roster-v4", scoringRules: "football-scoring-v2-draft", entryOpensAt: new Date(), locksAt: new Date(Date.now() + 86_400_000), status: "OPEN" } });
-    await openPack(friend.user.id, friend.starterEntitlementId);
+    await openPack(friend.user.id, friend.starterEntitlementId!);
     const cards = await db.cardInstance.findMany({ where: { ownerId: friend.user.id }, include: { template: { include: { player: true } } } });
     const by = (p: string, n: number) => cards.filter((x) => x.template.player.position === p).slice(0, n);
     const starters = [...by("GK", 1), ...by("DEF", 2), ...by("MID", 2), ...by("ATT", 2)];

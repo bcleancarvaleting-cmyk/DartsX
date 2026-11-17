@@ -14,7 +14,7 @@ beforeEach(async () => {
 describe("public club page", () => {
   it("shows crest, level, trophies and cards — and nothing personal", async () => {
     const r = await registerUser({ email: "secret@test.dev", password: "correct-horse-battery", displayName: "Showoff", clubName: "Peckham Rovers" });
-    await openPack(r.user.id, r.starterEntitlementId);
+    await openPack(r.user.id, r.starterEntitlementId!);
     const now = new Date();
     const gw = await createGameweek({ season: "T", number: 1, opensAt: new Date(now.getTime() - 1000), firstKickoffAt: new Date(now.getTime() + 3600_000), actorId: null });
     const comp = await db.competition.findFirstOrThrow({ where: { gameweekId: gw.id } });

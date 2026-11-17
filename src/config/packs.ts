@@ -380,3 +380,65 @@ FOOTBALL_PACKS.push(
   appPick(APP_PICK_CODES.LG2, "League Two", "League Two"),
 );
 export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_CODES.LG1, APP_PICK_CODES.LG2] as const;
+
+/**
+ * DartsX packs (darts sport). Product rule: packs NEVER contain the world's top 10 — every slot
+ * is filtered to darters ranked 11th or lower. Gold = Contenders (11–25), Silver = Challengers
+ * (26–50), Bronze = Outsiders (51+).
+ */
+const NO_TOP_TEN = { minRanking: 10 } as const;
+export const DARTS_STARTER_PACK_CODE = "darts-starter";
+export const DARTS_PACKS: PackSkuSeed[] = [
+  {
+    code: "darts-outsider",
+    version: 1,
+    name: "Outsider Pack",
+    kind: "REGULAR",
+    priceMinor: 199,
+    blurb: "5 darters ranked 51+, with a chance of a Challenger.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Outsider", count: 4, base: "BRONZE", upgrades: [], filters: NO_TOP_TEN },
+        { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }], filters: NO_TOP_TEN },
+      ],
+    },
+  },
+  {
+    code: "darts-challenger",
+    version: 1,
+    name: "Challenger Pack",
+    kind: "REGULAR",
+    priceMinor: 399,
+    blurb: "5 darters ranked 26–50, with a chance of a Contender.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Challenger", count: 4, base: "SILVER", upgrades: [], filters: NO_TOP_TEN },
+        { label: "Challenger+", count: 1, base: "SILVER", upgrades: [{ category: "GOLD", chanceBp: 2000 }], filters: NO_TOP_TEN },
+      ],
+    },
+  },
+  {
+    code: "darts-contender",
+    version: 1,
+    name: "Contender Pack",
+    kind: "REGULAR",
+    priceMinor: 799,
+    blurb: "5 darters: 2 Contenders (ranked 11–25) guaranteed. Never the top 10.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Contender", count: 2, base: "GOLD", upgrades: [], filters: NO_TOP_TEN },
+        { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: NO_TOP_TEN },
+        { label: "Outsider", count: 1, base: "BRONZE", upgrades: [], filters: NO_TOP_TEN },
+      ],
+    },
+  },
+];

@@ -1,0 +1,238 @@
+import { recruiterBoard } from "@/server/referrals";
+import Link from "next/link";
+import { ClubCrest } from "@/components/club-crest";
+import { logoutAction } from "@/app/actions/auth";
+import { respondInviteAction } from "@/app/actions/moderation";
+import { ActionButton } from "@/components/action-button";
+import { FoundingBadge } from "@/components/founding-badge";
+import { CopyLink } from "@/components/copy-link";
+import { FOOTBALL_PACKS } from "@/config/packs";
+import { getText } from "@/server/settings";
+import { TakeItOnTheGo } from "@/components/app-install";
+import { headers } from "next/headers";
+import { requireUser } from "@/server/auth/session";
+import { binderTotals } from "@/server/binder";
+import { db } from "@/server/db";
+import { isEnabled } from "@/server/flags";
+import { canModerate, pendingInvite } from "@/server/moderation";
+import { balancesFor, fmtGbp, fmtMp, profileGaps } from "@/server/wallet";
+import { fmtDate } from "@/lib/view";
+
+export const metadata = { title: "My Account" };
+
+export default async function AccountPage() {
+  const user = await requireUser();
+  const [full, bal, totals, entries, invite, devTools] = await Promise.all([
+    db.user.findUniqueOrThrow({ where: { id: user.id } }),
+    balancesFor(user.id),
+    binderTotals(user.id),
+    db.competitionEntry.findMany({ where: { userId: user.id, finalPoints: { not: null } }, include: { competition: true }, orderBy: { updatedAt: "desc" }, take: 8 }),
+    pendingInvite(user.id),
+    isEnabled("DEV_TOOLS"),
+  ]);
+  const gaps = profileGaps(full);
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host") ?? "playdartsx.com"}`;
+  const referLink = `${origin}/register?ref=${encodeURIComponent(user.displayName)}`;
+  const rewardCode = await getText("referralRewardSku");
+  const rewardName = FOOTBALL_PACKS.find((p) => p.code === rewardCode)?.name ?? "pack";
+  const [board, monthlyCode] = await Promise.all([recruiterBoard(), getText("referralMonthlyPrizeSku")]);
+  const monthlyName = FOOTBALL_PACKS.find((p) => p.code === monthlyCode)?.name ?? "prize pack";
+  const { milestoneProgress } = await import("@/server/referrals");
+  const { getSetting } = await import("@/server/settings");
+  const [ladder, signupXp, packXp] = await Promise.all([milestoneProgress(user.id), getSetting("referralSignupXp"), getSetting("referralPackXp")]);
+  const [referred, referralPacks] = await Promise.all([
+    db.user.count({ where: { referredById: user.id } }),
+    db.packEntitlement.count({ where: { userId: user.id, sourceRef: { startsWith: "referral:" } } }),
+  ]);
+  const points = entries.reduce((s, e) => s + (e.finalPoints ?? 0), 0);
+  const best = entries.length ? Math.min(...entries.map((e) => e.rank ?? 999)) : null;
+
+  return (
+    <div className="space-y-8">
+      <section className="flex flex-wrap items-center gap-5">
+        <Link href="/account/club/crest" className="group relative flex flex-col items-center" title="Edit club name & crest">
+          {user.crest ? (
+            <ClubCrest crest={user.crest} id="account" size={64} title={user.clubName ?? "Club crest"} />
+          ) : (
+            <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent font-display text-3xl font-extrabold uppercase italic text-accent-ink">{user.displayName.slice(0, 1)}</span>
+          )}
+          <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-lime group-hover:underline">{user.crest ? "Edit crest" : "Add crest"}</span>
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-4xl leading-none sm:text-5xl">{user.displayName}</h1>
+          {user.clubName && <p className="mt-1 font-display text-xl font-bold uppercase italic text-muted">{user.clubName}</p>}
+          <Link href={`/clubs/${encodeURIComponent(user.displayName)}`} className="mt-1 inline-block text-xs font-bold uppercase tracking-wider text-lime hover:underline">
+            View my public club page →
+          </Link>
+          {full.foundingNumber && (
+            <p className="mt-2 flex items-center gap-2">
+              <FoundingBadge number={full.foundingNumber} />
+              <span className="text-xs font-semibold text-muted">#{full.foundingNumber}</span>
+            </p>
+          )}
+          <p className="mt-1 text-sm text-muted">
+            {full.fullName ?? "Add your name in Profile"} · Manager since {fmtDate(full.createdAt, { month: "long", year: "numeric" })}
+            {user.role !== "USER" && <span className="ml-2 tag text-lime">{user.role.toLowerCase()}</span>}
+          </p>
+        </div>
+        <form action={logoutAction}>
+          <button className="btn-ghost px-4 py-2 text-xs">Log out</button>
+        </form>
+      </section>
+
+      {invite && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gold/50 bg-ink-900 p-5">
+          <div>
+            <p className="eyebrow">Invitation</p>
+            <p className="font-bold">{invite.invitedBy.displayName} has invited you to be a chat moderator.</p>
+            <p className="text-sm text-muted">Moderators review reported messages and can remove them.</p>
+          </div>
+          <div className="flex gap-2">
+            <ActionButton action={respondInviteAction.bind(null, invite.id, true)} className="btn-gold">Accept</ActionButton>
+            <ActionButton action={respondInviteAction.bind(null, invite.id, false)} className="btn-ghost">Decline</ActionButton>
+          </div>
+        </div>
+      )}
+
+      {(gaps.length > 0 || !user.emailVerified) && (
+        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm">
+          {gaps.length > 0 && (
+            <p>
+              <b>Finish your profile.</b> Add your {gaps.join(", ")} — you&apos;ll need {gaps.length > 1 ? "them" : "it"} to add funds or withdraw.{" "}
+              <Link href="/account/profile" className="font-semibold text-lime underline">Complete profile</Link>
+            </p>
+          )}
+          {!user.emailVerified && (
+            <p className={gaps.length ? "mt-1" : ""}>
+              <b>Verify your email.</b> <span className="text-muted">Email delivery isn&apos;t connected yet.</span>
+              {devTools && full.emailVerificationToken && (
+                <Link className="ml-2 text-lime underline" href={`/verify?token=${full.emailVerificationToken}`}>DEV: verify now</Link>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
+      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-ink-700 bg-ink-700 lg:grid-cols-4">
+        {[
+          ["£ balance", fmtMp(bal.total), `${fmtGbp(bal.winnings)} winnings to withdraw`, "/account/wallet"],
+          ["Cards", String(totals.total), `${totals.byCategory.GOLD} Gold · ${totals.byCategory.SILVER} Silver`, "/account/club"],
+          ["Points", String(points), `${entries.length} settled match${entries.length === 1 ? "" : "es"}`, "/matches"],
+          ["Best finish", best ? `#${best}` : "—", "across all matches", "/matches"],
+        ].map(([l, v, s, href]) => (
+          <Link key={l} href={href} className="bg-ink-900 p-5 transition hover:bg-ink-850">
+            <p className="eyebrow">{l}</p>
+            <p className="mt-1 font-display text-4xl font-extrabold italic tabular-nums">{v}</p>
+            <p className="text-xs text-faint">{s}</p>
+          </Link>
+        ))}
+      </section>
+
+      <TakeItOnTheGo />
+
+      <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-accent/40 bg-ink-900 p-5">
+        <div className="min-w-0 flex-1 basis-72">
+          <p className="eyebrow text-lime">Share DARTSX with your friends</p>
+          <p className="mt-1 font-semibold">Get a free {rewardName} for every friend who joins with your link and plays a match.</p>
+          <p className="text-sm text-muted">Your link is unique to you. The per-friend pack is untradeable (it counts in challenges, binders and freerolls); milestone gifts are tradeable. No limit.</p>
+          {(signupXp > 0 || packXp > 0) && (
+            <p className="mt-1 text-sm">
+              Plus {signupXp > 0 && <b className="text-lime">{signupXp.toLocaleString("en-GB")} XP</b>} {signupXp > 0 && "when they sign up"}
+              {signupXp > 0 && packXp > 0 && " and "}
+              {packXp > 0 && <b className="text-lime">{packXp.toLocaleString("en-GB")} XP</b>} {packXp > 0 && "when they buy their first pack"}.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-faint">
+            {referred} friend{referred === 1 ? "" : "s"} joined · {referralPacks} pack{referralPacks === 1 ? "" : "s"} earned
+          </p>
+          {ladder.milestones.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-faint">Milestone gifts · tradeable</p>
+              <ol className="mt-1.5 flex flex-wrap gap-2">
+                {ladder.milestones.map((m) => (
+                  <li key={m.friends} className={`rounded-xl border px-3 py-1.5 text-xs ${m.reached ? "border-lime/70 bg-lime/10" : "border-ink-700"}`}>
+                    <b className={m.reached ? "text-lime" : ""}>{m.reached ? "✓ " : ""}{m.friends} friend{m.friends === 1 ? "" : "s"}</b> <span className="text-muted">· {m.label}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-1 text-[11px] text-faint">{ladder.friends} counted so far — a friend counts once they&apos;ve played a match.</p>
+            </div>
+          )}
+        </div>
+        <div className="flex w-full max-w-md flex-col gap-2 sm:w-auto">
+          <CopyLink value={referLink} />
+          <div className="flex gap-2">
+            <a className="btn-ghost flex-1 px-3 py-2 text-[11px]" target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Join me on DARTSX — free football card game with real players. ${referLink}`)}`}>
+              WhatsApp
+            </a>
+            <a className="btn-ghost flex-1 px-3 py-2 text-[11px]" target="_blank" rel="noreferrer" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referLink)}`}>
+              Facebook
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-ink-700 bg-ink-900 p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="eyebrow text-gold">This month</p>
+            <h2 className="text-2xl">Top recruiters</h2>
+          </div>
+          <p className="text-xs text-muted">Top 3 on the 1st win a free {monthlyName}</p>
+        </div>
+        {board.length === 0 ? (
+          <p className="mt-3 text-sm text-faint">Nobody yet this month — a friend counts once they&apos;ve joined with your link and played a match. Be first!</p>
+        ) : (
+          <ol className="mt-3 divide-y divide-ink-800 text-sm">
+            {board.map((r) => (
+              <li key={r.userId} className={`flex items-center gap-3 py-2 ${r.userId === user.id ? "font-bold text-lime" : ""}`}>
+                <span className={`w-6 text-center font-display text-lg font-black ${r.rank === 1 ? "text-gold" : r.rank === 2 ? "text-silver" : r.rank === 3 ? "text-bronze" : "text-faint"}`}>{r.rank}</span>
+                <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                <span className="tabular-nums">
+                  {r.friends} friend{r.friends === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div>
+          <h2 className="mb-3 text-2xl">Recent matches</h2>
+          <ul className="divide-y divide-ink-700 rounded-2xl border border-ink-700 bg-ink-900 text-sm">
+            {entries.map((e) => (
+              <li key={e.id}>
+                <Link href={`/competitions/${e.competitionId}`} className="flex justify-between px-4 py-3 hover:bg-ink-850">
+                  <span>{e.competition.name}</span>
+                  <span className="tabular-nums"><b>{e.finalPoints} pts</b> <span className="text-faint">· #{e.rank}</span></span>
+                </Link>
+              </li>
+            ))}
+            {!entries.length && <li className="px-4 py-4 text-faint">No settled matches yet. <Link href="/matches" className="text-lime">Enter one →</Link></li>}
+          </ul>
+        </div>
+        <div>
+          <h2 className="mb-3 text-2xl">Shortcuts</h2>
+          <ul className="divide-y divide-ink-700 rounded-2xl border border-ink-700 bg-ink-900 text-sm">
+            {[
+              ["Add funds", "/account/wallet#add"],
+              ["Withdraw winnings", "/account/wallet#withdraw"],
+              ["My transfers & offers", "/transfers/mine"],
+              ["Responsible play & limits", "/account/wallet#limits"],
+              ...(canModerate(user.role) ? [["Moderation queue", "/moderation"]] : []),
+              ...(user.role === "ADMIN" ? [["Admin", "/admin"]] : []),
+            ].map(([l, h]) => (
+              <li key={h}>
+                <Link href={h} className="flex items-center justify-between px-4 py-3 hover:bg-ink-850">
+                  {l} <span className="text-faint">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    </div>
+  );
+}

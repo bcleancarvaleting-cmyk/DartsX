@@ -1,0 +1,382 @@
+import type { PackConfig } from "@/domain/packs/config";
+
+/**
+ * Pack catalogue seed definitions (spec §5).
+ *
+ * STATUS: prices are PROPOSED (spec §18 "Regular pack prices"). Upgrade chances and the Gold-pack
+ * minimum were APPROVED by the product owner on 9 Nov 2026. These are seeded into PackSku rows (versioned) and
+ * every opening stores the exact config snapshot it used. Change a pack by publishing a
+ * new version, never by editing an existing one.
+ */
+export interface PackSkuSeed {
+  code: string;
+  version: number;
+  name: string;
+  kind: "STARTER" | "WEEKLY" | "REGULAR";
+  priceMinor: number;
+  config: PackConfig;
+  blurb: string;
+  /** Shop grouping, e.g. "England". Packs without a region draw from every league. */
+  region?: string;
+  /** Leagues printed on the pack front, e.g. ["Premier League", "EFL"]. */
+  leagues?: string[];
+  /** Hidden from the shop (still grantable, e.g. by tests or old rewards). */
+  hiddenInShop?: boolean;
+}
+
+export const STARTER_PACK_CODE = "football-starter";
+export const WEEKLY_PACK_CODE = "football-weekly";
+
+/**
+ * Sign-up offer (product decision 12 Nov 2026), all free and untradeable:
+ *  - four league starter packs of 8 (a starting seven and a sub for every league) = 32 players,
+ *  - app only: four league picks (choose 1 of 4 of the league's top 50 performers, on loan for
+ *    the first 4 gameweeks), granted when the manager installs the DARTSX app = 36 players.
+ * Replaces the 7 + 4 starters, the three sign-up league picks and the two Gold loans.
+ */
+export const LEAGUE_STARTER_CODES = {
+  CHA: "football-starter-cha",
+  LG1: "football-starter-lg1",
+  LG2: "football-starter-lg2",
+} as const;
+/** App-only league picks: granted when a manager installs the app (see src/server/app-messages.ts). */
+export const APP_PICK_CODES = {
+  EPL: "football-app-pick-epl",
+  CHA: "football-app-pick-cha",
+  LG1: "football-app-pick-lg1",
+  LG2: "football-app-pick-lg2",
+} as const;
+export const LEAGUE_PICK_CODES = {
+  LG2: "football-pick-lg2",
+  LG1: "football-pick-lg1",
+  CHA: "football-pick-cha",
+} as const;
+
+/** A team from one league: GK, 2 DEF, 2 MID, 2 ATT and an outfield sub. */
+function leagueStarter(code: string, version: number, league: string, tier: number, base: "BRONZE" | "SILVER", silverChance: boolean): PackSkuSeed {
+  const f = (pos: "GK" | "DEF" | "MID" | "ATT") => ({ positions: [pos], countries: ["ENG"], leagueTiers: [tier] });
+  // Approved 9 Nov 2026: ~30% chance per slot of Silver (where the league has Silver players).
+  const up = silverChance ? [{ category: "SILVER" as const, chanceBp: 3000 }] : [];
+  return {
+    code,
+    version,
+    name: `${league} Starter`,
+    kind: "STARTER",
+    priceMinor: 0,
+    blurb: `8 ${league} players — a starting seven and a sub. Free when you join. Untradeable, yours to keep.`,
+    leagues: [league],
+    config: {
+      mode: "MINT",
+      nonTradeable: true,
+      uniquePlayers: true,
+      slots: [
+        { label: "GK", count: 1, base, filters: f("GK"), upgrades: up },
+        { label: "DEF", count: 2, base, filters: f("DEF"), upgrades: up },
+        { label: "MID", count: 2, base, filters: f("MID"), upgrades: up },
+        { label: "ATT", count: 2, base, filters: f("ATT"), upgrades: up },
+        { label: "Sub", count: 1, base, filters: { positions: ["DEF", "MID", "ATT"], countries: ["ENG"], leagueTiers: [tier] }, upgrades: up },
+      ],
+    },
+  };
+}
+
+export const FOOTBALL_PACKS: PackSkuSeed[] = [
+  // v4 (11 Nov 2026): one starter pack per league — see LEAGUE_STARTERS below. This is the
+  // Premier League one. The Premier League has almost no Bronze players (Bronze = under £2m), so
+  // its starter is all Silver.
+  // v5 (12 Nov 2026): 8 players (7 + 1 sub).
+  leagueStarter(STARTER_PACK_CODE, 5, "Premier League", 1, "SILVER", false),
+  {
+    code: WEEKLY_PACK_CODE,
+    // v2: renamed "Free Pack" — now given out on admin-scheduled drop days (10 Nov 2026).
+    version: 2,
+    name: "Free Pack",
+    kind: "WEEKLY",
+    priceMinor: 0,
+    blurb: "6 extra players, free on drop days. Untradeable — for building your squad.",
+    // Product decision (9 Nov 2026): one free untradeable pack per manager per week. Cards are
+    // minted fresh (they don't drain the tradeable supply) and can't be sold or used in sets.
+    // Odds mirror the Bronze Pack (approved odds).
+    config: {
+      mode: "MINT",
+      nonTradeable: true,
+      uniquePlayers: true,
+      slots: [
+        { label: "DEF", count: 1, base: "BRONZE", filters: { positions: ["DEF"] }, upgrades: [] },
+        { label: "MID", count: 1, base: "BRONZE", filters: { positions: ["MID"] }, upgrades: [] },
+        { label: "ATT", count: 1, base: "BRONZE", filters: { positions: ["ATT"] }, upgrades: [] },
+        { label: "Any", count: 2, base: "BRONZE", upgrades: [] },
+        { label: "Any+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }] },
+      ],
+    },
+  },
+  {
+    code: "football-bronze",
+    version: 1,
+    name: "Bronze Pack",
+    kind: "REGULAR",
+    priceMinor: 299,
+    blurb: "6 cards. Bronze, with a chance of a Silver.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Bronze", count: 5, base: "BRONZE", upgrades: [] },
+        { label: "Bronze+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }] },
+      ],
+    },
+  },
+  {
+    code: "football-silver",
+    version: 1,
+    name: "Silver Pack",
+    kind: "REGULAR",
+    priceMinor: 599,
+    blurb: "6 cards. Silver, with a chance of a Gold.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Silver", count: 5, base: "SILVER", upgrades: [] },
+        { label: "Silver+", count: 1, base: "SILVER", upgrades: [{ category: "GOLD", chanceBp: 2000 }] },
+      ],
+    },
+  },
+  {
+    code: "football-gold",
+    // v2 (product decision 9 Nov 2026): 2 Golds is a hard minimum; a pack can contain 3 or 4
+    // Golds, with the rest Bronze or Silver.
+    version: 2,
+    name: "Gold Pack",
+    kind: "REGULAR",
+    priceMinor: 999,
+    blurb: "6 cards. At least 2 top-flight Golds — sometimes 3 or 4.",
+    config: {
+      mode: "POOL",
+      nonTradeable: false,
+      uniquePlayers: true,
+      slots: [
+        { label: "Gold", count: 2, base: "GOLD", filters: { topFlightOnly: true }, upgrades: [] },
+        // Up to two extra Golds (approved odds).
+        {
+          label: "Wildcard",
+          count: 2,
+          base: "BRONZE",
+          upgrades: [
+            { category: "GOLD", chanceBp: 1500 },
+            { category: "SILVER", chanceBp: 4000 },
+          ],
+        },
+        { label: "Bronze+", count: 2, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 4000 }] },
+      ],
+    },
+  },
+];
+
+/** Restrict every slot of a pack to clubs in the given league countries. */
+function regional(base: PackSkuSeed, code: string, name: string, region: string, countries: string[], blurb: string): PackSkuSeed {
+  return {
+    ...base,
+    code,
+    version: 1,
+    name,
+    region,
+    leagues: ["Premier League", "EFL"],
+    hiddenInShop: false,
+    blurb,
+    config: {
+      ...base.config,
+      slots: base.config.slots.map((s) => ({
+        ...s,
+        filters: { ...s.filters, countries },
+        upgrades: s.upgrades?.map((u) => ({ ...u, filters: { ...u.filters, countries } })),
+      })),
+    },
+  };
+}
+
+const byCode = (c: string) => FOOTBALL_PACKS.find((p) => p.code === c)!;
+
+// Product decision (10 Nov 2026): every league is English for now, so the all-leagues packs are
+// hidden from the shop and the England packs are the line-up. Unhide them once other countries
+// (Italy, France, …) are added.
+for (const code of ["football-bronze", "football-silver", "football-gold"]) byCode(code).hiddenInShop = true;
+
+/** Region packs (product request 10 Nov 2026): players only from English league clubs. Same odds as the base packs. */
+FOOTBALL_PACKS.push(
+  regional(byCode("football-bronze"), "football-eng-bronze", "England Bronze", "England", ["ENG"], "6 cards from English league clubs. Bronze, with a chance of a Silver."),
+  regional(byCode("football-silver"), "football-eng-silver", "England Silver", "England", ["ENG"], "6 cards from English league clubs. Silver, with a chance of a Gold."),
+  regional(byCode("football-gold"), "football-eng-gold", "England Gold", "England", ["ENG"], "6 cards from English clubs. At least 2 Premier League Golds — sometimes 3 or 4."),
+);
+
+/**
+ * England Rare Pack (product decision 10 Nov 2026): £19.99 for two English Golds plus one card that is
+ * guaranteed to be a Ruby (75%), Diamond (20%) or that player's one-of-one Rainbow (5%).
+ * Like every paid pack it shows as "coming soon" until paid packs are switched on.
+ */
+export const RARE_PACK_CODE = "football-eng-rare";
+FOOTBALL_PACKS.push({
+  code: RARE_PACK_CODE,
+  version: 1,
+  name: "England Rare",
+  kind: "REGULAR",
+  priceMinor: 1999,
+  region: "England",
+  leagues: ["Premier League", "EFL"],
+  blurb: "3 English Golds — and one is guaranteed to be a Ruby, a Diamond or a one-of-one Rainbow.",
+  config: {
+    mode: "POOL",
+    uniquePlayers: true,
+    nonTradeable: false,
+    slots: [
+      { label: "Gold", count: 2, base: "GOLD", filters: { countries: ["ENG"] }, upgrades: [] },
+      { label: "Rare", count: 1, base: "GOLD", filters: { countries: ["ENG"] }, upgrades: [], finish: { RUBY: 7_500, DIAMOND: 2_000, RAINBOW: 500 } },
+    ],
+  },
+});
+
+/**
+ * Default welcome gifts (product decision 10 Nov 2026), editable in Admin → Economy: after the Starter Pack, a
+ * Silver pack 3 days after registering and one lucky Gold player 4 days after that (day 7).
+ * Both are freshly minted and untradeable, so they never drain the tradeable supply.
+ */
+export const WELCOME_SILVER_CODE = "football-welcome-silver";
+export const WELCOME_GOLD_CODE = "football-welcome-gold";
+
+FOOTBALL_PACKS.push(
+  {
+    code: WELCOME_SILVER_CODE,
+    version: 1,
+    name: "Welcome Silver",
+    kind: "WEEKLY",
+    priceMinor: 0,
+    hiddenInShop: true,
+    blurb: "A welcome gift 3 days after you join: 6 Silver players, with a chance of a Gold. Untradeable.",
+    config: {
+      mode: "MINT",
+      nonTradeable: true,
+      uniquePlayers: true,
+      slots: [
+        { label: "Silver", count: 5, base: "SILVER", upgrades: [] },
+        { label: "Silver+", count: 1, base: "SILVER", upgrades: [{ category: "GOLD", chanceBp: 2000 }] },
+      ],
+    },
+  },
+  {
+    code: WELCOME_GOLD_CODE,
+    version: 1,
+    name: "Lucky Gold",
+    kind: "WEEKLY",
+    priceMinor: 0,
+    hiddenInShop: true,
+    blurb: "One lucky Gold player, a week after you join. Untradeable.",
+    config: {
+      mode: "MINT",
+      nonTradeable: true,
+      uniquePlayers: true,
+      slots: [{ label: "Lucky Gold", count: 1, base: "GOLD", upgrades: [] }],
+    },
+  },
+);
+
+export const WELCOME_FOUR_CODE = "football-welcome-four";
+export const WELCOME_MIX_CODE = "football-welcome-mix";
+/** Choice of Gold: three Golds are offered and the manager keeps one (see src/server/picks.ts). */
+export const GOLD_PICK_CODE = "football-gold-pick";
+export const REFERRAL_PACK_CODE = "football-referral";
+export const BRONZE_PICK_CODE = "football-bronze-pick";
+export const SILVER_PICK_CODE = "football-silver-pick";
+/** Starter loans: every new manager chooses 2 of 6 top-flight Gold players, on loan for their first 4 gameweeks. */
+export const LOAN_PICK_CODE = "football-loan-pick";
+/** Packs opened through the pick screen (choose from a random shortlist) rather than a normal reveal. */
+export const PICK_CODES = [
+  GOLD_PICK_CODE,
+  SILVER_PICK_CODE,
+  BRONZE_PICK_CODE,
+  LOAN_PICK_CODE,
+  LEAGUE_PICK_CODES.LG2,
+  LEAGUE_PICK_CODES.LG1,
+  LEAGUE_PICK_CODES.CHA,
+  "football-app-pick-epl",
+  "football-app-pick-cha",
+  "football-app-pick-lg1",
+  "football-app-pick-lg2",
+] as const;
+
+const free = (code: string, name: string, blurb: string, slots: PackSkuSeed["config"]["slots"]): PackSkuSeed => ({
+  code,
+  version: 1,
+  name,
+  kind: "WEEKLY",
+  priceMinor: 0,
+  hiddenInShop: true,
+  blurb,
+  config: { mode: "MINT", nonTradeable: true, uniquePlayers: true, slots },
+});
+
+/** Starter period packs (product decision 10 Nov 2026) and the refer-a-friend pack. All free and untradeable. */
+FOOTBALL_PACKS.push(
+  free(WELCOME_FOUR_CODE, "Squad Boost", "4 more players for your squad, 3 days after you join. Untradeable.", [
+    { label: "Bronze", count: 3, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }] },
+    { label: "Bronze+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 5000 }] },
+  ]),
+  free(WELCOME_MIX_CODE, "Mixed Pack", "A mix of Bronze, Silver and Gold. Untradeable.", [
+    { label: "Bronze", count: 2, base: "BRONZE", upgrades: [] },
+    { label: "Silver", count: 2, base: "SILVER", upgrades: [] },
+    { label: "Gold", count: 1, base: "GOLD", upgrades: [] },
+  ]),
+  free(GOLD_PICK_CODE, "Choice of Gold", "Pick one of three Gold players to keep. Untradeable.", [{ label: "Gold", count: 1, base: "GOLD", upgrades: [] }]),
+  free(REFERRAL_PACK_CODE, "Refer-a-Friend Pack", "3 players for every friend who joins and plays: usually 2 Bronze and a Silver, sometimes a Gold. Untradeable.", [
+    { label: "Bronze", count: 2, base: "BRONZE", upgrades: [] },
+    { label: "Bonus", count: 1, base: "SILVER", upgrades: [{ category: "GOLD", chanceBp: 1500 }] },
+  ]),
+);
+
+/** When each welcome gift unlocks, counted from registration: the 4-week starter period. */
+// Removed 11 Nov 2026: the sign-up offer (four league starters + three league picks) replaces the
+// drip gifts. The packs still exist, so Admin → Economy can switch a welcome gift back on.
+export const WELCOME_SCHEDULE: ReadonlyArray<{ code: string; afterDays: number }> = [];
+
+/** Gift versions (free, untradeable, minted) of the shop packs, and Bronze/Silver picks — for admin gifts. */
+const giftOf = (code: string, name: string) => {
+  const base = FOOTBALL_PACKS.find((p) => p.code === code)!;
+  return free(`${code}-gift`, name, `${base.blurb} A gift from DARTSX — untradeable.`, base.config.slots);
+};
+FOOTBALL_PACKS.push(
+  free(LOAN_PICK_CODE, "Starter Loans", "Choose 2 of 6 Premier League Gold players, on loan for your first 4 gameweeks. Free, untradeable and no value.", [
+    { label: "Gold loan", count: 2, base: "GOLD", upgrades: [] },
+  ]),
+  free(BRONZE_PICK_CODE, "Choice of Bronze", "Pick one of three Bronze players to keep. Untradeable.", [{ label: "Bronze", count: 1, base: "BRONZE", upgrades: [] }]),
+  free(SILVER_PICK_CODE, "Choice of Silver", "Pick one of three Silver players to keep. Untradeable.", [{ label: "Silver", count: 1, base: "SILVER", upgrades: [] }]),
+  giftOf("football-eng-bronze", "Gift: Bronze Pack"),
+  giftOf("football-eng-silver", "Gift: Silver Pack"),
+  giftOf("football-eng-gold", "Gift: Gold Pack"),
+);
+
+/** The rest of the sign-up offer: three more league starters and the three league picks. */
+FOOTBALL_PACKS.push(
+  leagueStarter(LEAGUE_STARTER_CODES.CHA, 2, "Championship", 2, "BRONZE", true),
+  leagueStarter(LEAGUE_STARTER_CODES.LG1, 2, "League One", 3, "BRONZE", false),
+  leagueStarter(LEAGUE_STARTER_CODES.LG2, 2, "League Two", 4, "BRONZE", false),
+  { ...free(LEAGUE_PICK_CODES.LG2, "League Two Pick", "Choose 1 of 4 of League Two's most valuable players to keep. Untradeable.", [{ label: "League Two pick", count: 1, base: "BRONZE", upgrades: [] }]), kind: "STARTER" },
+  { ...free(LEAGUE_PICK_CODES.LG1, "League One Pick", "Choose 1 of 4 of League One's most valuable players to keep. Untradeable.", [{ label: "League One pick", count: 1, base: "BRONZE", upgrades: [] }]), kind: "STARTER" },
+  { ...free(LEAGUE_PICK_CODES.CHA, "Championship Pick", "Choose 1 of 4 of the Championship's most valuable Silver players to keep. Untradeable.", [{ label: "Championship pick", count: 1, base: "SILVER", upgrades: [] }]), kind: "STARTER" },
+);
+
+/** Everything a new manager gets at sign-up, in the order it's shown (the Premier League starter first). */
+export const SIGNUP_PACK_CODES = [STARTER_PACK_CODE, LEAGUE_STARTER_CODES.CHA, LEAGUE_STARTER_CODES.LG1, LEAGUE_STARTER_CODES.LG2] as const;
+
+/** The app-only picks, Premier League first. */
+const appPick = (code: string, league: string, name: string) => ({
+  ...free(code, `${name} Pick`, `App exclusive: choose 1 of 4 of the ${league}'s top 50 performers, on loan for your first 4 gameweeks.`, [{ label: `${name} pick`, count: 1, base: "SILVER" as const, upgrades: [] }]),
+  kind: "STARTER" as const,
+});
+FOOTBALL_PACKS.push(
+  appPick(APP_PICK_CODES.EPL, "Premier League", "Premier League"),
+  appPick(APP_PICK_CODES.CHA, "Championship", "Championship"),
+  appPick(APP_PICK_CODES.LG1, "League One", "League One"),
+  appPick(APP_PICK_CODES.LG2, "League Two", "League Two"),
+);
+export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_CODES.LG1, APP_PICK_CODES.LG2] as const;

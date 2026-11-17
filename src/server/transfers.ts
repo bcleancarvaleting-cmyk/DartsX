@@ -1,0 +1,840 @@
+import { assertCanTrade, assertSensiblePrice, reviewSale } from "./market-safety";
+import { FINISH_VALUE } from "@/config/tiers";
+import { alerts } from "./alerts";
+import { type CardCategory, Prisma } from "@/generated/prisma/client";
+import { alertNewListing } from "./watchlist";
+import { cryptoRandom } from "@/domain/random";
+import { finishOdds, rollFinish } from "./finishes";
+import { z } from "zod";
+import { audit } from "./audit";
+import { lockOwnedCard } from "./cards";
+import { type Tx, db, withTx } from "./db";
+import { DomainError } from "./errors";
+import { requireFlag } from "./flags";
+import { cardsTradeableNow } from "./launch";
+import { latestValues } from "./valuation";
+import { credit, debit, fmtMp, lockWallet, release } from "./wallet";
+
+/**
+ * Transfers: peer-to-peer trading and house auctions. Everything is priced in MX (never £).
+ *
+ *  - Prices are 0.10–100.00 MX. DARTSX takes a 5% fee from the seller on every sale.
+ *  - MX is never withdrawable, so any MX (bonus first) can buy, offer and bid. Sale proceeds are MX.
+ *  - House listings: DARTSX lists cards straight from circulation at a fixed buy-now price
+ *    (no offers). The card is RESERVED while listed and the MX goes to the house.
+ *  - Offers and bids hold the buyer's MX immediately (a negative ledger entry) and release it if
+ *    the offer is declined/withdrawn/lapses or the bid is beaten. Held MX can't be spent twice.
+ *
+ * LEGAL GATE: all of it requires the MARKET flag (only switchable once LEGAL_GATES_CLEARED lists it).
+ */
+export const MIN_PRICE_MINOR = 10; // 0.10 MX
+export const MAX_PRICE_MINOR = 10_000; // 100.00 MX for a normal card
+/**
+ * Special finishes are priced by the managers themselves and can be worth far more, so each has its
+ * own ceiling (DARTSX still takes the 5% fee on the sale).
+ */
+export const MAX_PRICE_BY_FINISH = { RUBY: 100_000, DIAMOND: 500_000, RAINBOW: 10_000_000 } as const; // 1,000 / 5,000 / 100,000 MX
+export const maxPriceFor = (finish: keyof typeof MAX_PRICE_BY_FINISH | null | undefined) => (finish ? MAX_PRICE_BY_FINISH[finish] : MAX_PRICE_MINOR);
+export const FEE_BPS = 500; // 5%
+
+export const feeFor = (priceMinor: number) => Math.max(1, Math.round((priceMinor * FEE_BPS) / 10_000));
+const clampPrice = (m: number) => Math.min(MAX_PRICE_MINOR, Math.max(MIN_PRICE_MINOR, Math.round(m)));
+
+// The per-card ceiling (100 MX, or more for Ruby/Diamond/Rainbow) is checked against the card itself.
+const price = z.number().int().min(MIN_PRICE_MINOR, "The minimum price is £0.10").max(MAX_PRICE_BY_FINISH.RAINBOW, "The maximum price is £100,000");
+
+export const ListingSchema = z.object({
+  cardId: z.string().uuid(),
+  askingPriceMinor: price,
+  days: z.number().int().min(1).max(14).default(7),
+  /** The seller ticked "I'm sure" after a high-price warning. */
+  confirmHigh: z.boolean().default(false),
+});
+
+// ───────────── Pricing guidance ─────────────
+
+/** Average P2P selling price per player+tier over the last `days` (null when no sales). */
+export async function averageSalePrices(keys: Array<{ playerId: string; category: CardCategory }>, days = 90) {
+  const out = new Map<string, { avgMinor: number; sales: number }>();
+  if (!keys.length) return out;
+  const since = new Date(Date.now() - days * 86_400_000);
+  const rows = await db.$queryRaw<Array<{ playerId: string; category: CardCategory; avg: number; n: bigint }>>`
+    SELECT t."playerId", t.category, AVG(l."soldPriceMinor")::float AS avg, COUNT(*) AS n
+    FROM "MarketListing" l
+    JOIN "CardInstance" c ON c.id = l."cardId"
+    JOIN "CardTemplate" t ON t.id = c."templateId"
+    WHERE l.status = 'SOLD' AND l."soldAt" >= ${since} AND t."playerId" = ANY(${[...new Set(keys.map((k) => k.playerId))]}::uuid[])
+      -- One-off Ruby/Diamond/Rainbow sales don't move the price guide for normal copies.
+      AND NOT EXISTS (SELECT 1 FROM "CardFinish" f WHERE f."cardId" = c.id)
+    GROUP BY t."playerId", t.category`;
+  for (const r of rows) out.set(`${r.playerId}:${r.category}`, { avgMinor: Math.round(r.avg), sales: Number(r.n) });
+  return out;
+}
+
+/**
+ * Recommended price: the card's current MX valuation, blended 50/50 with the recent average selling
+ * price when there have been at least 3 sales. Always within £0.10–£100.
+ */
+export function recommendPrice(valueMp: number | null, avg: { avgMinor: number; sales: number } | undefined) {
+  const base = valueMp !== null ? Math.round(valueMp * 100) : null;
+  if (avg && avg.sales >= 3) return clampPrice(base !== null ? (base + avg.avgMinor) / 2 : avg.avgMinor);
+  return base !== null ? clampPrice(base) : avg ? clampPrice(avg.avgMinor) : MIN_PRICE_MINOR * 10;
+}
+
+/** Guide price for one card (normal finishes only — Ruby/Diamond/Rainbow have no guide). */
+export async function guidePriceFor(cardId: string, tx: Tx | typeof db = db): Promise<number | null> {
+  const card = await tx.cardInstance.findUnique({ where: { id: cardId }, select: { finish: { select: { kind: true } }, template: { select: { playerId: true, category: true } } } });
+  if (!card) return null;
+  const { playerId, category } = card.template;
+  const [val, avg] = await Promise.all([
+    tx.mPValuation.findFirst({ where: { playerId, category }, orderBy: { computedAt: "desc" }, select: { valueMp: true } }),
+    averageSalePrices([{ playerId, category }]),
+  ]);
+  const sales = avg.get(`${playerId}:${category}`);
+  // No valuation and no sales yet = no guide (don't warn against a made-up number).
+  if (!val && !sales) return null;
+  // A finish is priced off the usual card's value: Ruby 2×, Diamond 3×, Rainbow 4×.
+  if (card.finish) return val ? Math.round(val.valueMp * FINISH_VALUE[card.finish.kind] * 100) : null;
+  return recommendPrice(val?.valueMp ?? null, sales);
+}
+
+/** All-time value history (MX valuation per day) for a player+tier, for the small transfer graph. */
+export async function valueHistory(playerId: string, category: CardCategory) {
+  const rows = await db.mPValuation.findMany({ where: { playerId, category }, orderBy: { computedAt: "asc" }, select: { valueMp: true, computedAt: true } });
+  return rows.map((r) => ({ t: r.computedAt.toISOString(), mp: r.valueMp }));
+}
+
+// ───────────── Listings ─────────────
+
+export async function createListing(userId: string, input: z.input<typeof ListingSchema>) {
+  await requireFlag("MARKET");
+  const data = ListingSchema.parse(input);
+  await assertCanTrade(userId);
+  await assertSensiblePrice(data.askingPriceMinor, await guidePriceFor(data.cardId), data.confirmHigh);
+  const listing = await withTx(async (tx) => {
+    const card = await lockOwnedCard(tx, userId, data.cardId);
+    if (card.tradeStatus !== "TRADEABLE") throw new DomainError("NOT_TRADEABLE", "This card can't be traded.");
+    if (card.lock !== "NONE") throw new DomainError("CARD_BUSY", "This card is already listed or in a match.");
+    const finish = await tx.cardFinish.findUnique({ where: { cardId: data.cardId }, select: { kind: true } });
+    const cap = maxPriceFor(finish?.kind);
+    if (data.askingPriceMinor > cap) throw new DomainError("PRICE_CAP", `The maximum price for this card is £${(cap / 100).toLocaleString("en-GB")}.`);
+    const listing = await tx.marketListing.create({
+      data: { cardId: data.cardId, sellerId: userId, askingPriceMinor: data.askingPriceMinor, currency: "MX", expiresAt: new Date(Date.now() + data.days * 86_400_000) },
+    });
+    await tx.cardInstance.update({ where: { id: data.cardId }, data: { lock: "LISTED", lockRef: listing.id } });
+    return listing;
+  });
+  // Tell anyone watching this player (outside the transaction — alerts never block a listing).
+  const card = await db.cardInstance.findUniqueOrThrow({ where: { id: data.cardId }, select: { template: { select: { playerId: true, player: { select: { displayName: true } } } } } });
+  await alertNewListing({ id: listing.id, sellerId: userId, askingPriceMinor: listing.askingPriceMinor, playerId: card.template.playerId, playerName: card.template.player.displayName });
+  return listing;
+}
+
+async function lockListing(tx: Tx, listingId: string) {
+  const [l] = await tx.$queryRaw<Array<{ id: string; status: string; cardId: string; sellerId: string | null; house: boolean; askingPriceMinor: number; expiresAt: Date; liveAt: Date | null }>>`
+    SELECT id, status, "cardId", "sellerId", house, "askingPriceMinor", "expiresAt", "liveAt" FROM "MarketListing" WHERE id = ${listingId}::uuid FOR UPDATE`;
+  return l;
+}
+
+/** Lock both wallets in a fixed order so two simultaneous trades can't deadlock. */
+async function lockWallets(tx: Tx, ...userIds: Array<string | null>) {
+  for (const id of [...new Set(userIds.filter((u): u is string => !!u))].sort()) await lockWallet(tx, id);
+}
+
+/** Release every pending offer on a listing (status → LAPSED unless one is being accepted). */
+async function lapseOffers(tx: Tx, listingId: string, exceptOfferId?: string) {
+  const pending = await tx.marketOffer.findMany({ where: { listingId, status: { in: ["PENDING", "COUNTERED"] }, id: exceptOfferId ? { not: exceptOfferId } : undefined } });
+  for (const o of pending) {
+    await release(tx, { userId: o.buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Offer lapsed — money returned" });
+    await tx.marketOffer.update({ where: { id: o.id }, data: { status: "LAPSED", respondedAt: new Date() } });
+  }
+}
+
+/** Move a listed card to the buyer, pay the seller (minus 5%) and close the listing. */
+async function settleSale(tx: Tx, listing: { id: string; cardId: string; sellerId: string | null; house: boolean }, buyerId: string, priceMinor: number) {
+  if (listing.house) return settleHouseSale(tx, listing, buyerId, priceMinor);
+  if (!listing.sellerId) throw new Error("peer listing without a seller");
+  const [card] = await tx.$queryRaw<Array<{ ownerId: string; lock: string; lockRef: string }>>`
+    SELECT "ownerId", "lock", "lockRef" FROM "CardInstance" WHERE id = ${listing.cardId}::uuid FOR UPDATE`;
+  if (!card || card.ownerId !== listing.sellerId || card.lock !== "LISTED" || card.lockRef !== listing.id) {
+    throw new DomainError("NOT_AVAILABLE", "This card is no longer available.");
+  }
+  const fee = feeFor(priceMinor);
+  const now = new Date();
+  await credit(tx, { userId: listing.sellerId, amountMinor: priceMinor - fee, kind: "MARKET_SALE", bucket: "BONUS", refId: `listing:${listing.id}:sale`, note: `Sold for ${fmtMp(priceMinor)} (5% fee ${fmtMp(fee)})` });
+  await tx.marketListing.update({ where: { id: listing.id }, data: { status: "SOLD", buyerId, soldPriceMinor: priceMinor, soldAt: now, feeMinor: fee } });
+  const closed = await tx.cardOwnership.updateMany({
+    where: { cardId: listing.cardId, userId: listing.sellerId, releasedAt: null },
+    data: { releasedAt: now, releasedVia: "MARKET_SALE", releasedRef: `listing:${listing.id}` },
+  });
+  if (closed.count !== 1) throw new Error("Seller ownership record missing");
+  await tx.cardOwnership.create({ data: { cardId: listing.cardId, userId: buyerId, acquiredVia: "MARKET", acquiredRef: `listing:${listing.id}`, acquiredAt: now } });
+  await tx.cardInstance.update({ where: { id: listing.cardId }, data: { ownerId: buyerId, lock: "NONE", lockRef: null } });
+  await tx.favouriteCard.deleteMany({ where: { cardId: listing.cardId } });
+  await reviewSale(tx, { listingId: listing.id, sellerId: listing.sellerId, buyerId, priceMinor, guideMinor: await guidePriceFor(listing.cardId, tx) });
+  return { fee };
+}
+
+/** A house sale: the reserved card leaves circulation and goes to the buyer; the MX goes to DARTSX. */
+async function settleHouseSale(tx: Tx, listing: { id: string; cardId: string }, buyerId: string, priceMinor: number) {
+  const [card] = await tx.$queryRaw<Array<{ supplyState: string; packable: boolean; category: string; playerId: string }>>`
+    SELECT ci."supplyState", ci.packable, t.category::text AS category, t."playerId"
+    FROM "CardInstance" ci JOIN "CardTemplate" t ON t.id = ci."templateId" WHERE ci.id = ${listing.cardId}::uuid FOR UPDATE OF ci`;
+  if (!card || card.supplyState !== "RESERVED") throw new DomainError("NOT_AVAILABLE", "This card is no longer available.");
+  // A Gold signed from a player drop can come out a Diamond or Ruby. (Rainbows only come from Gold
+  // and Rare packs.)
+  if (!card.packable) {
+    const finish = await rollFinish(tx, cryptoRandom, await finishOdds(), { playerId: card.playerId, cardId: listing.cardId, category: card.category }, ["DIAMOND", "RUBY"]);
+    if (finish) await audit(tx, { actorId: buyerId, action: "finish.drop", entityType: "CardInstance", entityId: listing.cardId, after: { ...finish, listingId: listing.id } });
+  }
+  const now = new Date();
+  await tx.marketListing.update({ where: { id: listing.id }, data: { status: "SOLD", buyerId, soldPriceMinor: priceMinor, soldAt: now } });
+  await tx.cardOwnership.create({ data: { cardId: listing.cardId, userId: buyerId, acquiredVia: "MARKET", acquiredRef: `listing:${listing.id}`, acquiredAt: now } });
+  const tradeStatus = (await cardsTradeableNow()) ? "TRADEABLE" : "NON_TRADEABLE";
+  await tx.cardInstance.update({ where: { id: listing.cardId }, data: { supplyState: "HELD", ownerId: buyerId, lock: "NONE", lockRef: null, tradeStatus } });
+  // DARTSX market: every copy sold makes the player's remaining copies 2% dearer (demand pricing).
+  if (card.packable) {
+    await tx.$executeRaw`
+      UPDATE "MarketListing" ml SET "askingPriceMinor" = LEAST(${MAX_PRICE_MINOR}::int, CEIL(ml."askingPriceMinor" * (1 + ${MARKET_STEP_PCT}::numeric / 100))::int)
+      FROM "CardInstance" c, "CardInstance" sold
+      WHERE ml."cardId" = c.id AND sold.id = ${listing.cardId}::uuid AND c."templateId" = sold."templateId"
+        AND ml.house AND ml.status = 'ACTIVE' AND c.packable AND ml.id <> ${listing.id}::uuid`;
+  }
+  return { fee: 0 };
+}
+
+/** Price rise on a player's remaining DARTSX market copies each time one sells. */
+export const MARKET_STEP_PCT = 2;
+
+/**
+ * The DARTSX market (product decision 12 Nov 2026): up to `perPlayer` copies of every player, at
+ * their base tier (Bronze, Silver or Gold), on sale from DARTSX at their current £ value — taken
+ * from the unowned pool, so how many there are depends on the pool. Running it again (a new
+ * batch) re-prices the copies still on sale to the current value and tops each player back up.
+ * Unsold copies go back into packs when the listing ends.
+ */
+/** Copies of each player on the DARTSX market (product decision 13 Nov 2026: 3 of each). */
+export const MARKET_COPIES = 3;
+
+export async function releaseMarketBatch(adminId: string, opts: { perPlayer?: number; days?: number; resetValues?: boolean } = {}) {
+  const perPlayer = Math.min(20, Math.max(1, Math.round(opts.perPlayer ?? MARKET_COPIES)));
+  const days = Math.min(60, Math.max(1, Math.round(opts.days ?? 14)));
+  if (opts.resetValues) await (await import("./valuation")).revalueAll(new Date(), { reset: true });
+  const values = await db.$queryRaw<Array<{ templateId: string; valueMp: number }>>`
+    SELECT t.id AS "templateId", v."valueMp" FROM "CardTemplate" t
+    JOIN LATERAL (SELECT "valueMp" FROM "MPValuation" mv WHERE mv."playerId" = t."playerId" AND mv.category = t.category ORDER BY "computedAt" DESC LIMIT 1) v ON true
+    WHERE t.edition = 'STANDARD' AND t.active`;
+  const price = new Map(values.map((v) => [v.templateId, clampPrice(Math.round(Number(v.valueMp) * 100))]));
+  const expiresAt = new Date(Date.now() + days * 86_400_000);
+  // Re-price what's already on sale.
+  let repriced = 0;
+  for (const [templateId, p] of price) {
+    repriced += await db.$executeRaw`
+      UPDATE "MarketListing" ml SET "askingPriceMinor" = ${p}, "expiresAt" = GREATEST(ml."expiresAt", ${expiresAt})
+      FROM "CardInstance" c WHERE ml."cardId" = c.id AND c."templateId" = ${templateId}::uuid AND ml.house AND ml.status = 'ACTIVE' AND c.packable AND ml."askingPriceMinor" <> ${p}`;
+  }
+  // Top every player up to `perPlayer` copies from the unowned pool (no special finishes).
+  const picks = await db.$queryRaw<Array<{ id: string; templateId: string }>>`
+    WITH onsale AS (
+      SELECT c."templateId", COUNT(*)::int AS n FROM "MarketListing" ml JOIN "CardInstance" c ON c.id = ml."cardId"
+      WHERE ml.house AND ml.status = 'ACTIVE' AND c.packable GROUP BY c."templateId"
+    ), pool AS (
+      SELECT c.id, c."templateId", ROW_NUMBER() OVER (PARTITION BY c."templateId" ORDER BY c.serial) AS rn
+      FROM "CardInstance" c JOIN "CardTemplate" t ON t.id = c."templateId"
+      WHERE t.edition = 'STANDARD' AND t.active AND c.packable AND c."supplyState" IN ('AVAILABLE', 'RECIRCULATING')
+        AND NOT EXISTS (SELECT 1 FROM "CardFinish" f WHERE f."cardId" = c.id)
+    )
+    SELECT pool.id, pool."templateId" FROM pool LEFT JOIN onsale ON onsale."templateId" = pool."templateId"
+    WHERE pool.rn <= ${perPlayer} - COALESCE(onsale.n, 0)`;
+  let listed = 0;
+  for (let i = 0; i < picks.length; i += 500) {
+    const chunk = picks.slice(i, i + 500).filter((c) => price.has(c.templateId));
+    listed += await withTx(async (tx) => {
+      const moved = await tx.cardInstance.updateMany({ where: { id: { in: chunk.map((c) => c.id) }, supplyState: { in: ["AVAILABLE", "RECIRCULATING"] } }, data: { supplyState: "RESERVED" } });
+      const ok = await tx.cardInstance.findMany({ where: { id: { in: chunk.map((c) => c.id) }, supplyState: "RESERVED" }, select: { id: true, templateId: true } });
+      await tx.marketListing.createMany({ data: ok.map((c) => ({ cardId: c.id, sellerId: null, house: true, askingPriceMinor: price.get(c.templateId)!, currency: "MX", expiresAt })) });
+      return Math.min(moved.count, ok.length);
+    }, { timeoutMs: 60_000 });
+  }
+  await audit(db, { actorId: adminId, action: "market.release", entityType: "MarketListing", after: { perPlayer, days, listed, repriced, resetValues: !!opts.resetValues } });
+  return { listed, repriced, players: price.size };
+}
+
+/** Close a listing without a sale and free its card (back to the seller, or back into packs for house cards). */
+async function closeListing(tx: Tx, l: { id: string; house: boolean; cardId: string }, status: "CANCELLED" | "EXPIRED") {
+  await lapseOffers(tx, l.id);
+  await tx.marketListing.update({ where: { id: l.id }, data: { status } });
+  if (l.house) {
+    await tx.cardInstance.updateMany({ where: { id: l.cardId, supplyState: "RESERVED", packable: true }, data: { supplyState: "AVAILABLE" } });
+    await tx.cardInstance.updateMany({ where: { id: l.cardId, supplyState: "RESERVED", packable: false }, data: { supplyState: "RETIRED" } });
+  }
+  else await tx.cardInstance.updateMany({ where: { lock: "LISTED", lockRef: l.id }, data: { lock: "NONE", lockRef: null } });
+}
+
+export async function buyNow(buyerId: string, listingId: string) {
+  await requireFlag("MARKET");
+  let sold: { sellerId: string | null; cardId: string; price: number } | null = null;
+  const result = await withTx(async (tx) => {
+    const l = await lockListing(tx, listingId);
+    if (!l || l.status !== "ACTIVE" || l.expiresAt <= new Date()) throw new DomainError("NOT_AVAILABLE", "This listing is no longer available.");
+    if (l.liveAt && l.liveAt > new Date()) throw new DomainError("NOT_LIVE", "This player drop isn't live yet.");
+    if (l.sellerId === buyerId) throw new DomainError("OWN_LISTING", "You can't buy your own listing.");
+    if (!l.house) await assertCanTrade(buyerId);
+    await lockWallets(tx, buyerId, l.sellerId);
+    // A buyer with a pending offer on this listing gets that hold back first, then pays in full.
+    await lapseOffers(tx, l.id);
+    // Any £ balance can buy — added funds included (product decision 13 Nov 2026); earned credit
+    // is spent first. Player-to-player sales: the seller pays the 5% fee.
+    await debit(tx, {
+      userId: buyerId,
+      amountMinor: l.askingPriceMinor,
+      kind: "MARKET_PURCHASE",
+      refId: `listing:${l.id}:buy`,
+      note: l.house ? "Player drop" : "Transfer — buy now",
+    });
+    const r = await settleSale(tx, l, buyerId, l.askingPriceMinor);
+    if (!l.house) sold = { sellerId: l.sellerId, cardId: l.cardId, price: l.askingPriceMinor };
+    return r;
+  });
+  const s = sold as { sellerId: string | null; cardId: string; price: number } | null;
+  if (s) await alerts.cardSold(s.sellerId, s.cardId, s.price, listingId);
+  return result;
+}
+
+/** Listings are final (product decision 11 Nov 2026): they stay up until sold or expired. */
+export async function cancelListing(userId: string, listingId: string) {
+  void userId;
+  void listingId;
+  throw new DomainError("FINAL", "Listings can't be cancelled: it stays on Transfers until it sells or the listing ends.");
+}
+
+/** Take a listing down (admin only — e.g. the seller was blocked): offers refunded, card unlocked. */
+export async function withdrawListingForAdmin(adminId: string, listingId: string, reason: string) {
+  await withTx(async (tx) => {
+    const l = await lockListing(tx, listingId);
+    if (!l || l.status !== "ACTIVE") return;
+    await closeListing(tx, l, "CANCELLED");
+    await audit(tx, { actorId: adminId, action: "listing.withdraw", entityType: "MarketListing", entityId: listingId, after: { reason } });
+  });
+}
+
+export async function expireListings(now = new Date()) {
+  const expired = await db.marketListing.findMany({ where: { status: "ACTIVE", expiresAt: { lte: now } }, select: { id: true } });
+  for (const { id } of expired) {
+    await withTx(async (tx) => {
+      const l = await lockListing(tx, id);
+      if (!l || l.status !== "ACTIVE") return;
+      await closeListing(tx, l, "EXPIRED");
+    });
+  }
+  return expired.length;
+}
+
+// ───────────── Offers ─────────────
+
+export async function makeOffer(buyerId: string, listingId: string, amountMinor: number) {
+  await requireFlag("MARKET");
+  price.parse(amountMinor);
+  const offer = await withTx(async (tx) => {
+    const l = await lockListing(tx, listingId);
+    if (!l || l.status !== "ACTIVE" || l.expiresAt <= new Date()) throw new DomainError("NOT_AVAILABLE", "This listing is no longer available.");
+    if (l.house) throw new DomainError("BUY_NOW_ONLY", "DARTSX listings are buy-now only.");
+    if (l.sellerId === buyerId) throw new DomainError("OWN_LISTING", "You can't make an offer on your own listing.");
+    if (amountMinor >= l.askingPriceMinor) throw new DomainError("USE_BUY_NOW", "That's at or above the buy-now price — just buy it now.");
+    await assertCanTrade(buyerId);
+    await lockWallet(tx, buyerId);
+    const previous = await tx.marketOffer.findFirst({ where: { listingId, buyerId, status: { in: ["PENDING", "COUNTERED"] } } });
+    if (previous) {
+      await release(tx, { userId: buyerId, refId: `offer:${previous.id}`, kind: "OFFER_RELEASE", note: "Offer replaced" });
+      await tx.marketOffer.update({ where: { id: previous.id }, data: { status: "WITHDRAWN", respondedAt: new Date() } });
+    }
+    const offer = await tx.marketOffer.create({ data: { listingId, buyerId, amountMinor } });
+    await debit(tx, { userId: buyerId, amountMinor, kind: "OFFER_HOLD", refId: `offer:${offer.id}`, note: "Offer — money held until the seller responds" });
+    return Object.assign(offer, { sellerId: l.sellerId, cardId: l.cardId });
+  });
+  const { sellerId, cardId, ...row } = offer;
+  await alerts.offerReceived(sellerId, cardId, amountMinor, row.id);
+  return row;
+}
+
+async function lockOffer(tx: Tx, offerId: string) {
+  const [o] = await tx.$queryRaw<Array<{ id: string; listingId: string; buyerId: string; amountMinor: number; status: string }>>`
+    SELECT id, "listingId", "buyerId", "amountMinor", status FROM "MarketOffer" WHERE id = ${offerId}::uuid FOR UPDATE`;
+  return o;
+}
+
+export async function withdrawOffer(buyerId: string, offerId: string) {
+  await requireFlag("MARKET");
+  return withTx(async (tx) => {
+    const o = await lockOffer(tx, offerId);
+    if (!o || o.buyerId !== buyerId || o.status !== "PENDING") throw new DomainError("NOT_FOUND", "Offer not found or already answered.");
+    await lockWallet(tx, buyerId);
+    await release(tx, { userId: buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Offer withdrawn — money returned" });
+    await tx.marketOffer.update({ where: { id: o.id }, data: { status: "WITHDRAWN", respondedAt: new Date() } });
+  });
+}
+
+export async function respondToOffer(sellerId: string, offerId: string, accept: boolean) {
+  await requireFlag("MARKET");
+  const r = await withTx(async (tx) => {
+    const found = await tx.marketOffer.findUnique({ where: { id: offerId }, select: { listingId: true } });
+    if (!found) throw new DomainError("NOT_FOUND", "Offer not found.");
+    const l = await lockListing(tx, found.listingId); // listing first, then offer: same order as buyNow
+    const o = await lockOffer(tx, offerId);
+    if (!l || l.sellerId !== sellerId) throw new DomainError("NOT_FOUND", "Offer not found.");
+    if (o.status !== "PENDING") throw new DomainError("DONE", "This offer has already been answered.");
+    await lockWallets(tx, o.buyerId, sellerId);
+    if (!accept) {
+      await release(tx, { userId: o.buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Offer declined — money returned" });
+      await tx.marketOffer.update({ where: { id: o.id }, data: { status: "DECLINED", respondedAt: new Date() } });
+      return { accepted: false, buyerId: o.buyerId, cardId: l.cardId };
+    }
+    if (l.status !== "ACTIVE") throw new DomainError("NOT_AVAILABLE", "This listing is no longer active.");
+    // The held MX becomes the payment: release the hold and take the purchase in one step.
+    await release(tx, { userId: o.buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Offer accepted" });
+    await debit(tx, { userId: o.buyerId, amountMinor: o.amountMinor, kind: "MARKET_PURCHASE", refId: `listing:${l.id}:buy`, note: "Transfer — offer accepted" });
+    await tx.marketOffer.update({ where: { id: o.id }, data: { status: "ACCEPTED", respondedAt: new Date() } });
+    await lapseOffers(tx, l.id, o.id);
+    await settleSale(tx, l, o.buyerId, o.amountMinor);
+    return { accepted: true, buyerId: o.buyerId, cardId: l.cardId, listingId: l.id, price: o.amountMinor };
+  });
+  await alerts.offerAnswered(r.buyerId, r.cardId, r.accepted, offerId);
+  if (r.listingId && r.price !== undefined) await alerts.cardSold(sellerId, r.cardId, r.price, r.listingId);
+  return { accepted: r.accepted };
+}
+
+/**
+ * Counter-offer (product decision 11 Nov 2026): the seller replies to an offer with a price between
+ * the offer and their asking price. The buyer's offer stays held; they can accept the counter
+ * (paying the difference) or decline it (their MX comes back). One counter per offer.
+ */
+export async function counterOffer(sellerId: string, offerId: string, counterMinor: number) {
+  await requireFlag("MARKET");
+  price.parse(counterMinor);
+  const r = await withTx(async (tx) => {
+    const found = await tx.marketOffer.findUnique({ where: { id: offerId }, select: { listingId: true } });
+    if (!found) throw new DomainError("NOT_FOUND", "Offer not found.");
+    const l = await lockListing(tx, found.listingId);
+    const o = await lockOffer(tx, offerId);
+    if (!l || l.sellerId !== sellerId) throw new DomainError("NOT_FOUND", "Offer not found.");
+    if (l.status !== "ACTIVE") throw new DomainError("NOT_AVAILABLE", "This listing is no longer active.");
+    if (o.status !== "PENDING") throw new DomainError("DONE", "You can only counter an offer that's waiting for your answer.");
+    if (counterMinor <= o.amountMinor) throw new DomainError("TOO_LOW", "Your counter must be more than their offer — or just accept it.");
+    if (counterMinor >= l.askingPriceMinor) throw new DomainError("TOO_HIGH", "Your counter must be below your asking price — they can buy it now at that.");
+    await tx.marketOffer.update({ where: { id: o.id }, data: { status: "COUNTERED", counterMinor, counteredAt: new Date() } });
+    return { buyerId: o.buyerId, cardId: l.cardId };
+  });
+  const { notify } = await import("./notifications");
+  await notify(r.buyerId, { kind: "MARKET", title: "↩️ Counter-offer", body: `The seller came back with ${fmtMp(counterMinor)}. Accept it or decline on My transfers.`, href: "/transfers/mine", dedupeKey: `counter:${offerId}` }).catch(() => {});
+}
+
+/** The buyer answers a counter-offer: accept (buys at the counter price) or decline (MX returned). */
+export async function answerCounter(buyerId: string, offerId: string, accept: boolean) {
+  await requireFlag("MARKET");
+  const r = await withTx(async (tx) => {
+    const found = await tx.marketOffer.findUnique({ where: { id: offerId }, select: { listingId: true } });
+    if (!found) throw new DomainError("NOT_FOUND", "Offer not found.");
+    const l = await lockListing(tx, found.listingId);
+    const o = await lockOffer(tx, offerId);
+    if (!l || o.buyerId !== buyerId) throw new DomainError("NOT_FOUND", "Offer not found.");
+    if (o.status !== "COUNTERED") throw new DomainError("DONE", "This counter-offer has already been answered.");
+    const counter = (await tx.marketOffer.findUniqueOrThrow({ where: { id: o.id }, select: { counterMinor: true } })).counterMinor!;
+    await lockWallets(tx, buyerId, l.sellerId);
+    if (!accept) {
+      await release(tx, { userId: buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Counter-offer declined — money returned" });
+      await tx.marketOffer.update({ where: { id: o.id }, data: { status: "DECLINED", respondedAt: new Date() } });
+      return { accepted: false as const, sellerId: l.sellerId, cardId: l.cardId };
+    }
+    if (l.status !== "ACTIVE") throw new DomainError("NOT_AVAILABLE", "This listing is no longer active.");
+    await assertCanTrade(buyerId);
+    await release(tx, { userId: buyerId, refId: `offer:${o.id}`, kind: "OFFER_RELEASE", note: "Counter-offer accepted" });
+    await debit(tx, { userId: buyerId, amountMinor: counter, kind: "MARKET_PURCHASE", refId: `listing:${l.id}:buy`, note: "Transfer — counter-offer accepted" });
+    await tx.marketOffer.update({ where: { id: o.id }, data: { status: "ACCEPTED", amountMinor: counter, respondedAt: new Date() } });
+    await lapseOffers(tx, l.id, o.id);
+    await settleSale(tx, l, buyerId, counter);
+    return { accepted: true as const, sellerId: l.sellerId, cardId: l.cardId, listingId: l.id, price: counter };
+  });
+  if (r.accepted) await alerts.cardSold(r.sellerId, r.cardId, r.price, r.listingId);
+  else {
+    const { notify } = await import("./notifications");
+    await notify(r.sellerId!, { kind: "MARKET", title: "Counter-offer declined", body: "The buyer declined your counter. Your card is still listed.", href: "/transfers/mine", dedupeKey: `counter-declined:${offerId}` }).catch(() => {});
+  }
+  return { accepted: r.accepted };
+}
+
+// ───────────── House auctions ─────────────
+
+export const AuctionSchema = z.object({
+  playerId: z.string().uuid(),
+  category: z.enum(["BRONZE", "SILVER", "GOLD"]),
+  startPriceMinor: price,
+  minIncrementMinor: z.number().int().min(1).max(1000).default(10),
+  reserveMinor: price.optional(),
+  startsAt: z.coerce.date(),
+  hours: z.number().min(1).max(24 * 7),
+});
+
+/** Admin: take one card of a player+tier out of the pack pool and put it up for auction. */
+export async function createAuction(adminId: string, input: z.input<typeof AuctionSchema>) {
+  const data = AuctionSchema.parse(input);
+  return withTx(async (tx) => {
+    const [card] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT c.id FROM "CardInstance" c JOIN "CardTemplate" t ON t.id = c."templateId"
+      WHERE t."playerId" = ${data.playerId}::uuid AND t.category = ${data.category}::"CardCategory"
+        AND c."supplyState" IN ('AVAILABLE', 'RECIRCULATING')
+      ORDER BY c.serial LIMIT 1 FOR UPDATE OF c SKIP LOCKED`;
+    if (!card) throw new DomainError("NO_STOCK", "No unowned copy of this card is left in the pool.");
+    await tx.cardInstance.update({ where: { id: card.id }, data: { supplyState: "RESERVED" } });
+    const a = await tx.auction.create({
+      data: {
+        cardId: card.id,
+        startPriceMinor: data.startPriceMinor,
+        minIncrementMinor: data.minIncrementMinor,
+        reserveMinor: data.reserveMinor,
+        startsAt: data.startsAt,
+        endsAt: new Date(data.startsAt.getTime() + data.hours * 3_600_000),
+        status: data.startsAt <= new Date() ? "LIVE" : "SCHEDULED",
+        createdById: adminId,
+      },
+    });
+    await audit(tx, { actorId: adminId, action: "auction.create", entityType: "Auction", entityId: a.id, after: a });
+    return a;
+  });
+}
+
+/** A bid in the final 30 seconds puts 30 seconds back on the clock. */
+export const ANTI_SNIPE_MS = 30_000;
+
+export async function placeBid(userId: string, auctionId: string, amountMinor: number, now = new Date()) {
+  await requireFlag("MARKET");
+  await requireFlag("AUCTIONS");
+  price.parse(amountMinor);
+  const r = await withTx(async (tx) => {
+    const [a] = await tx.$queryRaw<Array<{ id: string; status: string; startsAt: Date; endsAt: Date; startPriceMinor: number; minIncrementMinor: number; antiSnipeMinutes: number; sellerId: string | null; buyNowMinor: number | null }>>`
+      SELECT id, status, "startsAt", "endsAt", "startPriceMinor", "minIncrementMinor", "antiSnipeMinutes", "sellerId", "buyNowMinor" FROM "Auction" WHERE id = ${auctionId}::uuid FOR UPDATE`;
+    if (!a || !["LIVE", "SCHEDULED"].includes(a.status) || a.startsAt > now || a.endsAt <= now) throw new DomainError("CLOSED", "This auction isn't open for bids.");
+    if (a.sellerId === userId) throw new DomainError("OWN_AUCTION", "You can't bid on your own auction.");
+    if (a.sellerId) await assertCanTrade(userId);
+    if (a.buyNowMinor !== null && amountMinor >= a.buyNowMinor) throw new DomainError("USE_BUY_NOW", `That's at or above the buy-it-now price — just buy it now for ${fmtMp(a.buyNowMinor)}.`);
+    const leading = await tx.auctionBid.findFirst({ where: { auctionId, status: "LEADING" } });
+    const min = leading ? leading.amountMinor + a.minIncrementMinor : a.startPriceMinor;
+    if (amountMinor < min) throw new DomainError("TOO_LOW", `The minimum bid is ${fmtMp(min)}.`);
+    await lockWallets(tx, userId, ...(leading ? [leading.userId] : []));
+    // Release the previous leader first (it may be the same manager raising their own bid).
+    if (leading) {
+      await release(tx, { userId: leading.userId, refId: `bid:${leading.id}`, kind: "AUCTION_RELEASE", note: "Outbid — money returned" });
+      await tx.auctionBid.update({ where: { id: leading.id }, data: { status: "OUTBID" } });
+    }
+    const bid = await tx.auctionBid.create({ data: { auctionId, userId, amountMinor } });
+    await debit(tx, { userId, amountMinor, kind: "AUCTION_HOLD", refId: `bid:${bid.id}`, note: "Auction bid — money held" });
+    // Anti-sniping, auction style: a bid in the last 30 seconds resets the clock to 30 seconds, so
+    // everyone sees it and can bid again — and again, until no one beats it.
+    const snipe = ANTI_SNIPE_MS;
+    const endsAt = a.endsAt.getTime() - now.getTime() <= snipe ? new Date(now.getTime() + snipe) : a.endsAt;
+    await tx.auction.update({ where: { id: auctionId }, data: { status: "LIVE", endsAt } });
+    return { bid, endsAt, outbid: leading && leading.userId !== userId ? leading : null };
+  });
+  if (r.outbid) {
+    const a = await db.auction.findUnique({ where: { id: auctionId }, select: { cardId: true } });
+    if (a) await alerts.outbid(r.outbid.userId, a.cardId, auctionId, r.outbid.id);
+  }
+  return { bid: r.bid, endsAt: r.endsAt };
+}
+
+/** Close finished auctions: card to the top bidder (if the reserve is met), otherwise back to the pool. */
+export async function settleAuctions(now = new Date()) {
+  await db.auction.updateMany({ where: { status: "SCHEDULED", startsAt: { lte: now } }, data: { status: "LIVE" } });
+  const due = await db.auction.findMany({ where: { status: "LIVE", endsAt: { lte: now } }, select: { id: true } });
+  for (const { id } of due) {
+    const won = await withTx(async (tx) => {
+      const [a] = await tx.$queryRaw<Array<{ id: string; status: string; cardId: string; reserveMinor: number | null; endsAt: Date; sellerId: string | null }>>`
+        SELECT id, status, "cardId", "reserveMinor", "endsAt", "sellerId" FROM "Auction" WHERE id = ${id}::uuid FOR UPDATE`;
+      if (!a || a.status !== "LIVE" || a.endsAt > now) return;
+      const top = await tx.auctionBid.findFirst({ where: { auctionId: id, status: "LEADING" } });
+      if (!top || (a.reserveMinor !== null && top.amountMinor < a.reserveMinor)) {
+        if (top) {
+          await lockWallet(tx, top.userId);
+          await release(tx, { userId: top.userId, refId: `bid:${top.id}`, kind: "AUCTION_RELEASE", note: "Reserve not met — money returned" });
+          await tx.auctionBid.update({ where: { id: top.id }, data: { status: "RELEASED" } });
+        }
+        // Unsold: a manager's card goes back to them; a DARTSX card goes back into packs.
+        if (a.sellerId) await tx.cardInstance.update({ where: { id: a.cardId }, data: { lock: "NONE", lockRef: null } });
+        else await tx.cardInstance.update({ where: { id: a.cardId }, data: { supplyState: "AVAILABLE" } });
+        await tx.auction.update({ where: { id }, data: { status: "UNSOLD", settledAt: now } });
+        return;
+      }
+      if (a.sellerId) {
+        await lockWallets(tx, top.userId, a.sellerId);
+        await release(tx, { userId: top.userId, refId: `bid:${top.id}`, kind: "AUCTION_RELEASE", note: "Auction won" });
+        await debit(tx, { userId: top.userId, amountMinor: top.amountMinor, kind: "MARKET_PURCHASE", refId: `auction:${id}:win`, note: "Auction won" });
+        await tx.auctionBid.update({ where: { id: top.id }, data: { status: "WON" } });
+        await sellAuctionCard(tx, { id, cardId: a.cardId, sellerId: a.sellerId }, top.userId, top.amountMinor, now);
+        return { userId: top.userId, cardId: a.cardId, amount: top.amountMinor, sellerId: a.sellerId };
+      }
+      await lockWallet(tx, top.userId);
+      await release(tx, { userId: top.userId, refId: `bid:${top.id}`, kind: "AUCTION_RELEASE", note: "Auction won" });
+      await debit(tx, { userId: top.userId, amountMinor: top.amountMinor, kind: "MARKET_PURCHASE", refId: `auction:${id}:win`, note: "Auction won" });
+      await tx.auctionBid.update({ where: { id: top.id }, data: { status: "WON" } });
+      const tradeStatus = (await cardsTradeableNow()) ? "TRADEABLE" : "NON_TRADEABLE";
+      await tx.cardInstance.update({ where: { id: a.cardId }, data: { supplyState: "HELD", ownerId: top.userId, lock: "NONE", lockRef: null, tradeStatus } });
+      await tx.cardOwnership.create({ data: { cardId: a.cardId, userId: top.userId, acquiredVia: "MARKET", acquiredRef: `auction:${id}`, acquiredAt: now } });
+      await tx.auction.update({ where: { id }, data: { status: "SETTLED", winnerId: top.userId, winningBidMinor: top.amountMinor, settledAt: now } });
+      return { userId: top.userId, cardId: a.cardId, amount: top.amountMinor, sellerId: null as string | null };
+    });
+    if (won) {
+      await alerts.auctionWon(won.userId, won.cardId, won.amount, id);
+      if (won.sellerId) await alerts.cardSold(won.sellerId, won.cardId, won.amount, `auction:${id}`);
+    }
+  }
+  return due.length;
+}
+
+export async function cancelAuction(adminId: string, auctionId: string) {
+  return withTx(async (tx) => {
+    const [a] = await tx.$queryRaw<Array<{ id: string; status: string; cardId: string; sellerId: string | null }>>`
+      SELECT id, status, "cardId", "sellerId" FROM "Auction" WHERE id = ${auctionId}::uuid FOR UPDATE`;
+    if (!a || !["LIVE", "SCHEDULED"].includes(a.status)) throw new DomainError("DONE", "This auction has already closed.");
+    const top = await tx.auctionBid.findFirst({ where: { auctionId, status: "LEADING" } });
+    if (top) {
+      await lockWallet(tx, top.userId);
+      await release(tx, { userId: top.userId, refId: `bid:${top.id}`, kind: "AUCTION_RELEASE", note: "Auction cancelled — money returned" });
+      await tx.auctionBid.update({ where: { id: top.id }, data: { status: "RELEASED" } });
+    }
+    if (a.sellerId) await tx.cardInstance.update({ where: { id: a.cardId }, data: { lock: "NONE", lockRef: null } });
+    else await tx.cardInstance.update({ where: { id: a.cardId }, data: { supplyState: "AVAILABLE" } });
+    await tx.auction.update({ where: { id: auctionId }, data: { status: "CANCELLED", settledAt: new Date() } });
+    await audit(tx, { actorId: adminId, action: "auction.cancel", entityType: "Auction", entityId: auctionId });
+  });
+}
+
+// ───────────── Manager auctions ─────────────
+
+/** How long a manager's auction can run (product decision 11 Nov 2026). */
+export const AUCTION_HOURS = [3, 12, 24] as const;
+export const ManagerAuctionSchema = z
+  .object({
+    cardId: z.string().uuid(),
+    startPriceMinor: price,
+    buyNowMinor: price.optional(),
+    /** The lowest the seller will accept: below it the player doesn't sell and goes back to them. */
+    reserveMinor: price.optional(),
+    hours: z.union([z.literal(3), z.literal(12), z.literal(24)]),
+  })
+  .refine((d) => d.buyNowMinor === undefined || d.buyNowMinor > d.startPriceMinor, { message: "The buy-it-now price must be higher than the starting price." })
+  .refine((d) => d.reserveMinor === undefined || d.reserveMinor >= d.startPriceMinor, { message: "The minimum price can't be below the starting bid." })
+  .refine((d) => d.reserveMinor === undefined || d.buyNowMinor === undefined || d.reserveMinor <= d.buyNowMinor, { message: "The minimum price can't be above the buy-it-now price." });
+
+/** A manager puts one of their own tradeable cards up for auction. */
+export async function createManagerAuction(userId: string, input: z.input<typeof ManagerAuctionSchema>) {
+  await requireFlag("MARKET");
+  await requireFlag("AUCTIONS");
+  const d = ManagerAuctionSchema.parse(input);
+  await assertCanTrade(userId);
+  return withTx(async (tx) => {
+    const card = await lockOwnedCard(tx, userId, d.cardId);
+    if (card.tradeStatus !== "TRADEABLE") throw new DomainError("NOT_TRADEABLE", "This card can't be traded.");
+    if (card.lock !== "NONE") throw new DomainError("CARD_BUSY", "This card is already listed or in a match.");
+    const finish = await tx.cardFinish.findUnique({ where: { cardId: d.cardId }, select: { kind: true } });
+    const cap = maxPriceFor(finish?.kind);
+    if ((d.buyNowMinor ?? d.startPriceMinor) > cap) throw new DomainError("PRICE_CAP", `The maximum price for this card is £${(cap / 100).toLocaleString("en-GB")}.`);
+    const now = new Date();
+    const a = await tx.auction.create({
+      data: { cardId: d.cardId, sellerId: userId, startPriceMinor: d.startPriceMinor, buyNowMinor: d.buyNowMinor, reserveMinor: d.reserveMinor, startsAt: now, endsAt: new Date(now.getTime() + d.hours * 3_600_000), status: "LIVE" },
+    });
+    await tx.cardInstance.update({ where: { id: d.cardId }, data: { lock: "LISTED", lockRef: a.id } });
+    return a;
+  });
+}
+
+/** The card changes hands at the end of a manager's auction (or on buy-it-now); the seller is paid minus the 5% fee. */
+async function sellAuctionCard(tx: Tx, a: { id: string; cardId: string; sellerId: string }, buyerId: string, priceMinor: number, now: Date) {
+  const fee = feeFor(priceMinor);
+  await credit(tx, { userId: a.sellerId, amountMinor: priceMinor - fee, kind: "MARKET_SALE", bucket: "BONUS", refId: `auction:${a.id}:sale`, note: `Auction sold for ${fmtMp(priceMinor)} (5% fee ${fmtMp(fee)})` });
+  const closed = await tx.cardOwnership.updateMany({ where: { cardId: a.cardId, userId: a.sellerId, releasedAt: null }, data: { releasedAt: now, releasedVia: "MARKET_SALE", releasedRef: `auction:${a.id}` } });
+  if (closed.count !== 1) throw new Error("Seller ownership record missing");
+  await tx.cardOwnership.create({ data: { cardId: a.cardId, userId: buyerId, acquiredVia: "MARKET", acquiredRef: `auction:${a.id}`, acquiredAt: now } });
+  await tx.cardInstance.update({ where: { id: a.cardId }, data: { ownerId: buyerId, lock: "NONE", lockRef: null } });
+  await tx.favouriteCard.deleteMany({ where: { cardId: a.cardId } });
+  await tx.auction.update({ where: { id: a.id }, data: { status: "SETTLED", winnerId: buyerId, winningBidMinor: priceMinor, settledAt: now } });
+  await reviewSale(tx, { listingId: a.id, sellerId: a.sellerId, buyerId, priceMinor, guideMinor: await guidePriceFor(a.cardId, tx) }); // the auction id stands in for the listing
+}
+
+/** Buy a manager's auction outright at its buy-it-now price; any leading bid gets its MX back. */
+export async function buyNowAuction(userId: string, auctionId: string, now = new Date()) {
+  await requireFlag("MARKET");
+  await requireFlag("AUCTIONS");
+  const r = await withTx(async (tx) => {
+    const [a] = await tx.$queryRaw<Array<{ id: string; status: string; cardId: string; endsAt: Date; sellerId: string | null; buyNowMinor: number | null }>>`
+      SELECT id, status, "cardId", "endsAt", "sellerId", "buyNowMinor" FROM "Auction" WHERE id = ${auctionId}::uuid FOR UPDATE`;
+    if (!a || a.status !== "LIVE" || a.endsAt <= now) throw new DomainError("CLOSED", "This auction has closed.");
+    if (!a.sellerId || a.buyNowMinor === null) throw new DomainError("NO_BUY_NOW", "This auction has no buy-it-now price.");
+    if (a.sellerId === userId) throw new DomainError("OWN_AUCTION", "You can't buy your own auction.");
+    await assertCanTrade(userId);
+    const leading = await tx.auctionBid.findFirst({ where: { auctionId, status: "LEADING" } });
+    await lockWallets(tx, userId, a.sellerId, ...(leading ? [leading.userId] : []));
+    if (leading) {
+      await release(tx, { userId: leading.userId, refId: `bid:${leading.id}`, kind: "AUCTION_RELEASE", note: "Bought outright — money returned" });
+      await tx.auctionBid.update({ where: { id: leading.id }, data: { status: "OUTBID" } });
+    }
+    await debit(tx, { userId, amountMinor: a.buyNowMinor, kind: "MARKET_PURCHASE", refId: `auction:${a.id}:buynow`, note: "Auction — buy it now" });
+    await sellAuctionCard(tx, { id: a.id, cardId: a.cardId, sellerId: a.sellerId }, userId, a.buyNowMinor, now);
+    return { cardId: a.cardId, sellerId: a.sellerId, price: a.buyNowMinor, outbid: leading };
+  });
+  if (r.outbid && r.outbid.userId !== userId) await alerts.outbid(r.outbid.userId, r.cardId, auctionId, r.outbid.id);
+  await alerts.cardSold(r.sellerId, r.cardId, r.price, `auction:${auctionId}`);
+  return r;
+}
+
+// ───────────── House listings (DARTSX sells from circulation) ─────────────
+
+export const HouseStockSchema = z
+  .object({
+    tier: z.enum(["BRONZE", "SILVER", "GOLD"]),
+    count: z.number().int().min(1).max(200),
+    /** Fixed price for every card. */
+    priceMinor: price.nullable().default(null),
+    /** Price range: the best player gets the max, the weakest the min, curving down in between. */
+    minPriceMinor: price.nullable().default(null),
+    maxPriceMinor: price.nullable().default(null),
+    /** % on top of the recommended price (when no fixed price or range is given). */
+    markupPct: z.number().min(-50).max(200).default(0),
+    days: z.number().int().min(1).max(30).default(7),
+    leagues: z.array(z.string()).optional(),
+  })
+  .refine((d) => (d.minPriceMinor === null) === (d.maxPriceMinor === null), "Give both a minimum and a maximum price, or neither")
+  .refine((d) => d.minPriceMinor === null || d.maxPriceMinor === null || d.minPriceMinor <= d.maxPriceMinor, "The minimum price is above the maximum");
+
+/**
+ * How good a player is, for ordering prices within a range: real market value when we have it,
+ * otherwise league level, a first-team shirt number (1–11) and the card's current MX value.
+ */
+export function qualityScore(p: { marketValueGbp: number | null; leagueTier: number | null; squadNumber: number | null; valueMp: number | null }) {
+  if (p.marketValueGbp) return 1_000_000 + p.marketValueGbp / 1000;
+  const league = (6 - Math.min(5, p.leagueTier ?? 5)) * 100;
+  const firstTeam = p.squadNumber !== null && p.squadNumber >= 1 && p.squadNumber <= 11 ? 40 : p.squadNumber !== null && p.squadNumber <= 30 ? 15 : 0;
+  return league + firstTeam + (p.valueMp ?? 0);
+}
+
+/** Price for rank i of n in a range: a few expensive stars, most cards near the bottom. */
+export function bandPrice(i: number, n: number, min: number, max: number) {
+  const r = n <= 1 ? 0 : i / (n - 1);
+  const raw = min + (max - min) * (1 - r) ** 2;
+  // Shop-style prices: x.99 from 5 MX up, 0.25 steps below.
+  const shop = raw >= 500 ? Math.round(raw / 100) * 100 - 1 : Math.round(raw / 25) * 25;
+  return clampPrice(Math.min(max, Math.max(min, shop)));
+}
+
+async function listFromPool(tx: Tx, cardId: string, priceMinor: number, expiresAt: Date) {
+  await tx.$queryRaw`SELECT id FROM "CardInstance" WHERE id = ${cardId}::uuid FOR UPDATE`;
+  const moved = await tx.cardInstance.updateMany({ where: { id: cardId, supplyState: { in: ["AVAILABLE", "RECIRCULATING"] } }, data: { supplyState: "RESERVED" } });
+  if (!moved.count) return false;
+  await tx.marketListing.create({ data: { cardId, sellerId: null, house: true, askingPriceMinor: priceMinor, currency: "MX", expiresAt } });
+  return true;
+}
+
+/** Admin: take `count` cards of a tier out of the pack pool and list them at buy-now prices. */
+export async function stockHouseListings(adminId: string, input: z.input<typeof HouseStockSchema>) {
+  const d = HouseStockSchema.parse(input);
+  return withTx(
+    async (tx) => {
+      const leagueSql = d.leagues?.length ? Prisma.sql`AND l.code = ANY(${d.leagues}::text[])` : Prisma.empty;
+      // One copy per player not already on the list, chosen at random from the pool.
+      const cards = await tx.$queryRaw<Array<{ id: string; playerId: string; marketValueGbp: number | null; squadNumber: number | null; leagueTier: number | null }>>`
+        SELECT DISTINCT ON (t."playerId") c.id, t."playerId", p."marketValueGbp", p."squadNumber", l.tier AS "leagueTier"
+        FROM "CardInstance" c JOIN "CardTemplate" t ON t.id = c."templateId" JOIN "Player" p ON p.id = t."playerId"
+        LEFT JOIN "Club" cl ON cl.id = p."clubId" LEFT JOIN "League" l ON l.id = cl."leagueId"
+        WHERE t.category = ${d.tier}::"CardCategory" AND t.edition = 'STANDARD' AND c."supplyState" IN ('AVAILABLE', 'RECIRCULATING') ${leagueSql}
+          AND NOT EXISTS (
+            SELECT 1 FROM "MarketListing" ml JOIN "CardInstance" c2 ON c2.id = ml."cardId" JOIN "CardTemplate" t2 ON t2.id = c2."templateId"
+            WHERE ml.house AND ml.status = 'ACTIVE' AND t2."playerId" = t."playerId" AND t2.category = t.category)
+        ORDER BY t."playerId", random()`;
+      const picked = cards.sort(() => Math.random() - 0.5).slice(0, d.count);
+      if (!picked.length) throw new DomainError("NO_STOCK", "No unowned cards of that tier are left in circulation.");
+      const keys = picked.map((c) => ({ playerId: c.playerId, category: d.tier }));
+      const [values, avgs] = await Promise.all([latestValues(keys), averageSalePrices(keys)]);
+      const key = (c: { playerId: string }) => `${c.playerId}:${d.tier}`;
+      const ranked = [...picked].sort((a, b) => qualityScore({ ...b, valueMp: values.get(key(b)) ?? null }) - qualityScore({ ...a, valueMp: values.get(key(a)) ?? null }));
+      const expiresAt = new Date(Date.now() + d.days * 86_400_000);
+      let listed = 0;
+      for (const [i, c] of ranked.entries()) {
+        const priceMinor =
+          d.minPriceMinor !== null && d.maxPriceMinor !== null
+            ? bandPrice(i, ranked.length, d.minPriceMinor, d.maxPriceMinor)
+            : (d.priceMinor ?? clampPrice(recommendPrice(values.get(key(c)) ?? null, avgs.get(key(c))) * (1 + d.markupPct / 100)));
+        if (await listFromPool(tx, c.id, priceMinor, expiresAt)) listed++;
+      }
+      await audit(tx, { actorId: adminId, action: "house.stock", entityType: "MarketListing", after: { ...d, listed } });
+      return listed;
+    },
+    { timeoutMs: 60_000 },
+  );
+}
+
+/**
+ * Admin: list named players at set prices, e.g. "Haaland=45". Uses the player's best tier with a
+ * copy left in circulation. Returns what was listed and what couldn't be.
+ */
+export async function stockPinnedListings(adminId: string, text: string, days = 7) {
+  const lines = text.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+  const listed: string[] = [];
+  const missed: string[] = [];
+  for (const line of lines) {
+    const m = /^(.+?)\s*=\s*£?\s*(\d+(?:\.\d{1,2})?)$/.exec(line);
+    if (!m) {
+      missed.push(`${line} (use Name=price)`);
+      continue;
+    }
+    const priceMinor = Math.round(Number(m[2]) * 100);
+    if (priceMinor < MIN_PRICE_MINOR || priceMinor > MAX_PRICE_MINOR) {
+      missed.push(`${m[1]} (price must be 0.10–100)`);
+      continue;
+    }
+    const ok = await withTx(async (tx) => {
+      const [card] = await tx.$queryRaw<Array<{ id: string; name: string }>>`
+        SELECT c.id, p."displayName" AS name FROM "CardInstance" c JOIN "CardTemplate" t ON t.id = c."templateId" JOIN "Player" p ON p.id = t."playerId"
+        WHERE p."displayName" ILIKE ${"%" + m[1] + "%"} AND t.edition = 'STANDARD' AND c."supplyState" IN ('AVAILABLE', 'RECIRCULATING')
+        ORDER BY t.category DESC, p."marketValueGbp" DESC NULLS LAST, c.serial LIMIT 1`;
+      if (!card) return null;
+      return (await listFromPool(tx, card.id, priceMinor, new Date(Date.now() + days * 86_400_000))) ? card.name : null;
+    });
+    if (ok) listed.push(`${ok} £${(priceMinor / 100).toFixed(2)}`);
+    else missed.push(`${m[1]} (no copy left in circulation)`);
+  }
+  await audit(db, { actorId: adminId, action: "house.pinned", entityType: "MarketListing", after: { listed, missed } });
+  return { listed, missed };
+}
+
+/** Admin: stock the launch mix from src/config/transfers.ts in one go. */
+export async function stockLaunchMix(adminId: string) {
+  const { LAUNCH_MIX } = await import("@/config/transfers");
+  const pinned = await stockPinnedListings(adminId, LAUNCH_MIX.pinned.join(","), LAUNCH_MIX.days);
+  let total = pinned.listed.length;
+  for (const b of LAUNCH_MIX.bands) {
+    total += await stockHouseListings(adminId, {
+      tier: b.tier,
+      count: b.count,
+      minPriceMinor: Math.round(b.minMp * 100),
+      maxPriceMinor: Math.round(b.maxMp * 100),
+      leagues: [...b.leagues],
+      days: LAUNCH_MIX.days,
+    }).catch((e) => {
+      if (e instanceof DomainError) return 0;
+      throw e;
+    });
+  }
+  return { total, missed: pinned.missed };
+}
+
+/** Admin: withdraw every active house listing (cards go back into packs). */
+export async function clearHouseListings(adminId: string) {
+  // Old DARTSX listings from circulation only — player drops are managed on the player database page.
+  const active = await db.marketListing.findMany({ where: { house: true, status: "ACTIVE", card: { packable: true } }, select: { id: true } });
+  for (const { id } of active) {
+    await withTx(async (tx) => {
+      const l = await lockListing(tx, id);
+      if (l && l.status === "ACTIVE") await closeListing(tx, l, "CANCELLED");
+    });
+  }
+  await audit(db, { actorId: adminId, action: "house.clear", entityType: "MarketListing", after: { cleared: active.length } });
+  return active.length;
+}

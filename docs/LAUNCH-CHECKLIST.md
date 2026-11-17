@@ -1,0 +1,43 @@
+# DARTSX launch checklist
+
+What's built, and what needs a person (you, a lawyer or a provider) before each switch goes on.
+
+## Switches (Admin → Settings & flags)
+
+| Switch | Turns on | Needs first |
+| --- | --- | --- |
+| `SIMULATED_DATA` **off** | Real match data only | Sportmonks token saved and tested (Admin → Integrations), squads rebuilt |
+| `PACK_SHOP` + `PAID_PACKS` | Buying packs by card | Legal sign-off, Stripe live keys, odds page reviewed |
+| `DEPOSITS` | Topping up the wallet by card | Legal sign-off, Stripe live keys |
+| `MARKET` | Transfers: selling to other managers, DARTSX buy-nows | Legal sign-off, safeguard settings reviewed. **Planned on from launch day** (11 Nov 2026): sales are paid in bonus MX, which can be spent but never withdrawn. Free cards (starters, picks, loans, gifts) can't be sold. |
+| `AUCTIONS` | DARTSX auctions | Legal sign-off. Planned on from launch day too. |
+
+Legal-gated switches can't be turned on from admin until `LEGAL_GATES_CLEARED` lists them on the server. For launch day set it to include `PAID_PACKS,PACK_SHOP,MARKET,AUCTIONS` once the lawyer has signed those off, then switch each on in Admin.
+
+## For your lawyer
+
+- Paid packs with random contents, including the Rare pack's guaranteed Ruby/Diamond/Rainbow (a 1-of-1 card can be resold for MX).
+- **Cash prizes winnable with bought cards (decided 11 Nov 2026 — needs your lawyer's sign-off before launch).** Weekly Bronze Cup (£10), Silver Cup (£15) and Gold Cup (£20) pools are free to enter but open to any cards, including cards from paid packs. The reasoning: every manager gets 49 free players at sign-up (a 7 + 4 squad for each of the four leagues, three league picks and two Gold loans) plus a weekly booster, so anyone can enter every cup without paying. Still, if paying for packs can improve the chance of winning money, the UK Gambling Commission may treat it as gambling that needs a licence. If the lawyer says no: Admin → Settings → 'Cash prizes with any cards' = 0, and £ prizes go back to free-cards-only matches. The Freeroll stays free-cards-only either way.
+- Weekly boosters in cash-prize matches: everyone gets one free random booster each Tuesday (never sold) and puts it on one player of their choice, one per match. Ask whether this random element affects how the cash-prize matches are treated as skill-based prize competitions.
+- MX: non-withdrawable, not exchangeable for money.
+- The public odds page (`/odds`), Terms, Privacy, Risk warning and Responsible play pages.
+- Age verification approach (currently: date of birth declared, checked before any payment; identity checked before the first payout).
+
+## Accounts and keys to set up
+
+| What | Where it goes |
+| --- | --- |
+| API-Football (Pro plan) | `API_FOOTBALL_KEY` |
+| Stripe | `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`; webhook → `/api/webhooks/payments` |
+| Email sending | see `.env.example` |
+| Error alerts | `ERROR_WEBHOOK_URL` (Slack/Discord/any webhook) |
+| Push notifications | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (make them once with `npx web-push generate-vapid-keys`), `VAPID_SUBJECT` |
+| 5-minute job | `CRON_SECRET`, then call `/api/cron` every 5 minutes |
+| Domain | `APP_URL` |
+
+## Before opening to the public
+
+1. Run one full real gameweek in a closed beta: create from real fixtures, watch scores update, finalise, check prizes.
+2. Make a test card payment and a refund in Stripe test mode.
+3. Turn off `DEV_TOOLS` and `SIMULATED_DATA`.
+4. Check backups have run and that a restore works (see `docs/DEPLOY.md`).

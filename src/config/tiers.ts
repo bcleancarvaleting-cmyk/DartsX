@@ -59,5 +59,5 @@ export const FINISHES = {
 export const FINISH_VALUE: Record<"RUBY" | "DIAMOND" | "RAINBOW", number> = { RUBY: 2, DIAMOND: 3, RAINBOW: 4 };
 export type FinishKind = keyof typeof FINISHES;
 
-/** DartsX (17 Nov 2026): no card is ever valued above £5 — Ruby, Diamond and Rainbow included. */
-export const MAX_CARD_VALUE_GBP = 5;
+/** DartsX (18 Nov 2026): card values start at no more than £10 — parallels included. */
+export const MAX_CARD_VALUE_GBP = 10;

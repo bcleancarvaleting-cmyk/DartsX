@@ -24,7 +24,7 @@ export async function posterCards(playerIds: string[], finish: Finish | null = n
   const faces: CardWithTemplate[] = playerIds.flatMap((playerId) => {
     const template = templates.find((t) => t.playerId === playerId);
     if (!template) return [];
-    return [{ id: `poster-${playerId}`, templateId: template.id, template, serial: 0, supplyState: "AVAILABLE", tradeStatus: "TRADEABLE", ownerId: null, lock: "NONE", lockRef: null, releaseId: null, recycledCount: 0, packable: true, loanGameweeks: null, finish: null, mintedAt: new Date(0), updatedAt: new Date(0) }];
+    return [{ id: `poster-${playerId}`, templateId: template.id, template, serial: 0, supplyState: "AVAILABLE", tradeStatus: "TRADEABLE", ownerId: null, lock: "NONE", lockRef: null, releaseId: null, recycledCount: 0, packable: true, loanGameweeks: null, finish: null, parallel: null, mintedAt: new Date(0), updatedAt: new Date(0) }];
   });
   const views = await enrichCards(faces);
   return views.map((v) => {

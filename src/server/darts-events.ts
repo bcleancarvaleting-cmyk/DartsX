@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Prisma } from "@/generated/prisma/client";
 import { highestCheckoutHolders, type DartsStatLine } from "@/domain/darts/scoring";
-import { CARD_TIERS, bandFor, dartsValueGbp, fairStarterPairs, tierFor } from "@/domain/darts/teams";
+import { CARD_TIERS, bandFor, fairStarterPairs, tierFor } from "@/domain/darts/teams";
+import { DARTS_VALUE_CAP_GBP, marketValueGbp, startingValueGbp } from "@/domain/darts/cards";
 import { DARTS_BOOSTER_KINDS } from "@/domain/darts/boosters";
 import { ensureTemplate, mintInstances } from "./cards";
 import type { Tx } from "./db";
@@ -17,21 +18,47 @@ export async function dartsSport() {
 
 
 /**
- * Load the darters from prisma/data/darts-rankings.json (the PDC Order of Merit): each gets their
- * ranking, nationality and ranking prize money, and a card design in their band's tier. Safe to run
- * again: rankings update, nobody is duplicated.
+ * Load the card set: the darters from prisma/data/darts-rankings.json (the PDC Order of Merit) plus
+ * prisma/data/darts-cards.json (players missing from the scrape, the Icons, shirt colours and
+ * nicknames). Each gets a card design in their tier and the whole circulation is minted into the pack
+ * pool. Safe to run again: rankings update, nobody is duplicated, and colours or nicknames set in
+ * Admin are never overwritten.
  */
-export async function seedDarters(file = join(process.cwd(), "prisma", "data", "darts-rankings.json")) {
-  const data = JSON.parse(readFileSync(file, "utf8")) as { darters: Array<{ rank: number; name: string; country: string | null; earningsGbp: number }> };
+export const ICON_COPIES = 25;
+export async function seedDarters(file = join(process.cwd(), "prisma", "data", "darts-rankings.json"), cardsFile = join(process.cwd(), "prisma", "data", "darts-cards.json")) {
+  type Row = { rank: number; name: string; country: string | null; earningsGbp: number };
+  const data = JSON.parse(readFileSync(file, "utf8")) as { darters: Row[] };
+  const cards = JSON.parse(readFileSync(cardsFile, "utf8")) as {
+    extraDarters: Row[];
+    colours: Record<string, { c1: string; c2: string; c3?: string; pattern?: string }>;
+    nicknames: Record<string, string>;
+    icons: Array<{ name: string; nickname: string | null; country: string; fact: string }>;
+  };
   const sport = await dartsSport();
+  const known = new Set(data.darters.map((d) => d.name));
+  const darters = [...data.darters, ...cards.extraDarters.filter((d) => !known.has(d.name))].sort((a, b) => a.rank - b.rank);
   let added = 0;
-  for (const d of data.darters) {
+  const create = async (d: { name: string; country: string | null; rank: number | null; earningsGbp: number | null; icon: boolean; fact?: string }) => {
     const parts = d.name.trim().split(/\s+/);
     const existing = await db.player.findFirst({ where: { sportId: sport.id, displayName: d.name } });
-    const tier = CARD_TIERS[tierFor(d.rank)];
+    const look = cards.colours[d.name];
+    const extras = {
+      ...(look ? { colours: { c1: look.c1, c2: look.c2, c3: look.c3 ?? look.c1, pattern: look.pattern ?? null } } : {}),
+      ...(cards.nicknames[d.name] ? { nickname: cards.nicknames[d.name] } : {}),
+    };
     if (existing) {
-      await db.player.update({ where: { id: existing.id }, data: { ranking: d.rank, earningsGbp: d.earningsGbp, nationality: d.country ?? existing.nationality } });
-      continue;
+      await db.player.update({
+        where: { id: existing.id },
+        data: {
+          ranking: d.rank,
+          earningsGbp: d.earningsGbp,
+          nationality: d.country ?? existing.nationality,
+          // Never overwrite what an admin has set.
+          ...(existing.colours ? {} : extras.colours ? { colours: extras.colours } : {}),
+          ...(existing.nickname ? {} : extras.nickname ? { nickname: extras.nickname } : {}),
+        },
+      });
+      return;
     }
     const p = await db.player.create({
       data: {
@@ -43,32 +70,64 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
         nationality: d.country ?? "",
         ranking: d.rank,
         earningsGbp: d.earningsGbp,
+        icon: d.icon,
+        marketValueSource: d.fact ?? null, // Icons: their claim to fame, shown on the card
         rightsStatus: "PENDING",
+        ...extras,
       },
     });
     await db.$transaction(async (tx) => {
-      // The whole circulation is minted into the pack pool now: Legends 10, Tops 40, Tour cards 60.
+      // The whole circulation is minted into the pack pool now: Legends 10, Tops 40, Tour 60, Icons 25.
+      const tier = d.icon ? { category: "GOLD" as const, copies: ICON_COPIES } : CARD_TIERS[tierFor(d.rank)];
       const t = await tx.cardTemplate.create({ data: { playerId: p.id, category: tier.category, maxSupply: tier.copies } });
       await mintInstances(tx, { templateId: t.id, count: tier.copies, state: "AVAILABLE" });
     });
     added++;
+  };
+  for (const d of darters) await create({ ...d, icon: false });
+  for (const i of cards.icons) await create({ name: i.name, country: i.country, rank: null, earningsGbp: null, icon: true, fact: i.fact });
+  for (const i of cards.icons) if (i.nickname) await db.player.updateMany({ where: { sportId: sport.id, displayName: i.name, nickname: null }, data: { nickname: i.nickname } });
+  // Set numbers: the ranked players in ranking order, then the Icons.
+  const all = await db.player.findMany({ where: { sportId: sport.id, setNo: null }, select: { id: true } });
+  if (all.length) {
+    const ordered = await db.player.findMany({ where: { sportId: sport.id }, orderBy: [{ icon: "asc" }, { ranking: { sort: "asc", nulls: "last" } }, { displayName: "asc" }], select: { id: true, setNo: true } });
+    let n = Math.max(0, ...ordered.map((o) => o.setNo ?? 0));
+    for (const o of ordered) if (!o.setNo) await db.player.update({ where: { id: o.id }, data: { setNo: ++n } });
   }
   await refreshDartsValues();
-  return { darters: data.darters.length, added };
+  return { darters: darters.length + cards.icons.length, added };
 }
 
-
-/** Every darter's card value (≤ £5, by world ranking), recorded when it changes. */
-export async function refreshDartsValues() {
+/**
+ * Every card's value, recorded when it changes. A card that hasn't traded keeps its starting value
+ * from the world ranking (≤ £10; Icons £5). Once it trades in the Oche Shop, the value follows the
+ * median of the last 30 days' sales, blended with the previous value so one odd sale can't swing it.
+ */
+export async function refreshDartsValues(now = new Date()) {
   const sport = await dartsSport();
   const players = await db.player.findMany({
     where: { sportId: sport.id },
-    select: { id: true, ranking: true, templates: { where: { edition: "STANDARD" }, select: { category: true } }, valuations: { orderBy: { computedAt: "desc" }, take: 1, select: { valueMp: true } } },
+    select: { id: true, ranking: true, icon: true, templates: { where: { edition: "STANDARD" }, select: { category: true } }, valuations: { orderBy: { computedAt: "desc" }, take: 1, select: { valueMp: true, method: true } } },
   });
+  const since = new Date(now.getTime() - 30 * 86_400_000);
+  const sales = await db.marketListing.findMany({
+    where: { status: "SOLD", soldAt: { gte: since }, card: { parallel: null, template: { edition: "STANDARD", player: { sportId: sport.id } } } },
+    select: { soldPriceMinor: true, card: { select: { template: { select: { playerId: true } } } } },
+  });
+  const byPlayer = new Map<string, number[]>();
+  for (const s of sales) if (s.soldPriceMinor) byPlayer.set(s.card.template.playerId, [...(byPlayer.get(s.card.template.playerId) ?? []), s.soldPriceMinor / 100]);
   const rows = players.flatMap((p) =>
     p.templates
-      .map((t) => ({ playerId: p.id, category: t.category, valueMp: dartsValueGbp(p.ranking), method: "darts-v1", signals: { ranking: p.ranking, capGbp: 5 } }))
-      .filter((r) => p.valuations[0]?.valueMp !== r.valueMp),
+      .map((t) => {
+        const start = startingValueGbp(p.ranking, p.icon);
+        const last = p.valuations[0];
+        const traded = byPlayer.get(p.id) ?? [];
+        const marketLed = last?.method === "darts-market";
+        const valueMp = traded.length ? marketValueGbp(marketLed ? last!.valueMp : start, traded) : marketLed ? last!.valueMp : start;
+        const method = traded.length || marketLed ? "darts-market" : "darts-start";
+        return { playerId: p.id, category: t.category, valueMp, method, signals: { ranking: p.ranking, icon: p.icon, start, sales: traded.length, capGbp: DARTS_VALUE_CAP_GBP } };
+      })
+      .filter((r) => p.valuations[0]?.valueMp !== r.valueMp || (p.valuations[0]?.method !== r.method && r.method === "darts-market")),
   );
   if (rows.length) await db.mPValuation.createMany({ data: rows });
   return rows.length;

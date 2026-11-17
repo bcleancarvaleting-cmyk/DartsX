@@ -79,3 +79,21 @@ To raise entries later: change `DARTS_ENTRY_FEE_MINOR` (new games) or the game's
   (5% chance), 170 = 15% (15%), Double 20 finish = 10% (80%). The result is decided on the server;
   the code (OCHE20-XXXXXX …) is the manager's own, comes off their next pack automatically, single
   use, valid 7 days. The biggest discount a manager holds always comes off first.
+
+## The card set — 18 Nov 2026
+
+- **Base cards in the player's shirt colours** (main, trim, shade, optional pattern), set in
+  Admin → Darts cards. Checked so far: Littler (2026 Target shirt, fractured purple/navy, neon
+  yellow), Humphries (blue/white), Anderson (chequered sleeve), Van Gerwen (green). Everyone else
+  shows their country's colours until set.
+- **Icons**: 12 retired greats (Phil Taylor, Bristow, Lowe, Bob Anderson, Priestley, Part, Jocky
+  Wilson, Deller, Leighton Rees, Martin Adams, Trina Gulliver, Ted Hankey), 25 copies each, Gold,
+  collectable only. They turn up now and then in regular packs (2–5% on one slot).
+- **Parallels only in Rare packs**: Silver /99, Blue /49, Red /25, Green /10, Gold /5, Black 1/1 and
+  the unnumbered Pink Laser — about half of Rare-pack cards. No autograph cards.
+- **Values**: start at no more than £10 (No. 1 £10, No. 10 ~£6, No. 20 ~£3.50, 30p floor; Icons £5;
+  parallels ×1.5 to ×10, capped). Once a card trades, its value follows the median of the last 30
+  days' Oche Shop sales (refreshed hourly). A fair starter stable is worth about £10.
+- **Oche Shop fee**: 5% of each sale.
+- Michael van Gerwen added at No. 10 (missing from the rankings scrape; confirm when the rankings
+  are refreshed).

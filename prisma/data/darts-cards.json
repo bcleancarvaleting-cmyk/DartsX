@@ -1,0 +1,37 @@
+{
+  "note": "DartsX card set data. Colours are checked against the players' real shirts where marked 'checked'; everyone else uses their country's colours until set in Admin > Darts cards. Michael van Gerwen is missing from the rankings scrape; he is added at No. 10 (his main Order of Merit place in mid-2026 reports) until the rankings are refreshed. Icons are retired greats: collectable, not playable.",
+  "extraDarters": [
+    { "rank": 10, "name": "Michael van Gerwen", "country": "Netherlands", "earningsGbp": 595000 }
+  ],
+  "colours": {
+    "Luke Littler": { "c1": "#6a1fd1", "c2": "#e8ff1a", "c3": "#141a4a", "pattern": "fractured", "checked": "2026 Target shirt: fractured purple and navy, neon yellow" },
+    "Luke Humphries": { "c1": "#1d5fd1", "c2": "#ffffff", "c3": "#0b2a63", "checked": "Red Dragon: blue and white" },
+    "Gary Anderson": { "c1": "#141414", "c2": "#e6e6e6", "c3": "#0a0a0a", "pattern": "chequer", "checked": "plain shirt, chequered left sleeve" },
+    "Michael van Gerwen": { "c1": "#7ed321", "c2": "#111111", "c3": "#2f5a08", "checked": "his trademark green" }
+  },
+  "nicknames": {
+    "Luke Littler": "The Nuke", "Luke Humphries": "Cool Hand Luke", "Gian van Veen": "The Giant", "Gerwyn Price": "The Iceman",
+    "Jonny Clayton": "The Ferret", "Ross Smith": "Smudger", "James Wade": "The Machine", "Josh Rock": "Rocky",
+    "Stephen Bunting": "The Bullet", "Danny Noppert": "The Freeze", "Nathan Aspinall": "The Asp", "Gary Anderson": "The Flying Scotsman",
+    "Peter Wright": "Snakebite", "Rob Cross": "Voltage", "Chris Dobey": "Hollywood", "Damon Heta": "The Tradie",
+    "Jose de Sousa": "The Special One", "Dimitri Van den Bergh": "The DreamMaker", "Dave Chisnall": "Chizzy", "Ryan Searle": "Heavy Metal",
+    "Joe Cullen": "The Rockstar", "Daryl Gurney": "Superchin", "Brendan Dolan": "The History Maker", "Krzysztof Ratajski": "The Polish Eagle",
+    "Gabriel Clemens": "The German Giant", "Martin Schindler": "The Wall", "Kim Huybrechts": "The Hurricane", "Ryan Joyce": "Relentless",
+    "Ian White": "Diamond", "Mervyn King": "The King", "Dirk van Duijvenbode": "Aubergenius", "Jermaine Wattimena": "The Machine Gun",
+    "Ricardo Pietreczko": "Pikachu", "Michael van Gerwen": "Mighty Mike", "Raymond van Barneveld": "Barney", "Steve Beaton": "The Bronzed Adonis"
+  },
+  "icons": [
+    { "name": "Phil Taylor", "nickname": "The Power", "country": "England", "fact": "16× world champion" },
+    { "name": "Eric Bristow", "nickname": "The Crafty Cockney", "country": "England", "fact": "5× world champion" },
+    { "name": "John Lowe", "nickname": "Old Stoneface", "country": "England", "fact": "3× world champion" },
+    { "name": "Bob Anderson", "nickname": "The Limestone Cowboy", "country": "England", "fact": "1988 world champion" },
+    { "name": "Dennis Priestley", "nickname": "The Menace", "country": "England", "fact": "2× world champion" },
+    { "name": "John Part", "nickname": "Darth Maple", "country": "Canada", "fact": "3× world champion" },
+    { "name": "Jocky Wilson", "nickname": null, "country": "Scotland", "fact": "2× world champion" },
+    { "name": "Keith Deller", "nickname": "The Milky Bar Kid", "country": "England", "fact": "1983 world champion" },
+    { "name": "Leighton Rees", "nickname": null, "country": "Wales", "fact": "The first world champion, 1978" },
+    { "name": "Martin Adams", "nickname": "Wolfie", "country": "England", "fact": "3× world champion" },
+    { "name": "Trina Gulliver", "nickname": "The Golden Girl", "country": "England", "fact": "10× women's world champion" },
+    { "name": "Ted Hankey", "nickname": "The Count", "country": "England", "fact": "2× world champion" }
+  ]
+}

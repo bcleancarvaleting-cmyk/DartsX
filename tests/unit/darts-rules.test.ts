@@ -76,3 +76,27 @@ describe("fair starter stables and card tiers", () => {
     expect([1, 20, 21, 50, 51, null].map(tierFor)).toEqual(["LEGEND", "LEGEND", "TOP", "TOP", "TOUR", "TOUR"]);
   });
 });
+
+import { marketValueGbp, parallelFor, startingValueGbp } from "@/domain/darts/cards";
+describe("card values and parallels", () => {
+  it("start at £10 for the No. 1, only a handful near the top, 30p floor; Icons £5", () => {
+    expect(startingValueGbp(1)).toBe(10);
+    expect(startingValueGbp(10)).toBeGreaterThan(5);
+    expect(startingValueGbp(20)).toBeLessThan(4);
+    expect(startingValueGbp(128)).toBe(0.3);
+    expect(startingValueGbp(null, true)).toBe(5);
+  });
+  it("follow the market: the median sale, trusted more as sales pile up, within £10", () => {
+    expect(marketValueGbp(2, [])).toBe(2);
+    expect(marketValueGbp(2, [4])).toBe(2.8); // 60/40 blend on one sale
+    expect(marketValueGbp(2, [4, 4, 4, 4, 4])).toBe(3.6); // 80% on five
+    expect(marketValueGbp(9, [50, 50, 50])).toBe(10); // capped
+  });
+  it("roll rarest first, about half the cards", () => {
+    expect(parallelFor(0)).toBe("BLACK");
+    expect(parallelFor(19)).toBe("BLACK");
+    expect(parallelFor(20)).toBe("GOLD");
+    expect(parallelFor(4969)).toBe("SILVER");
+    expect(parallelFor(4970)).toBeNull();
+  });
+});

@@ -307,6 +307,9 @@ export async function runDartsJobs(now = new Date(), opts: { autoSchedule?: bool
     }
   }
 
+  // Card values: refreshed hourly from Oche Shop sales.
+  if (now.getUTCMinutes() < 5) await (await import("./darts-events")).refreshDartsValues(now);
+
   for (const e of await db.dartsEvent.findMany({ where: { status: { not: "FINISHED" } }, select: { id: true } })) {
     out.created += (await createGamesForEvent(e.id)).length;
   }

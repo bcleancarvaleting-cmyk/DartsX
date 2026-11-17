@@ -11,7 +11,7 @@ beforeEach(async () => {
 describe("DartsX events", () => {
   it("loads the Order of Merit with cards by band, then plays a 32-darter event to a champion", async () => {
     const s = await seedDarters();
-    expect(s.added).toBe(128);
+    expect(s.added).toBe(141); // 128 ranked + Michael van Gerwen + 12 Icons
     expect((await seedDarters()).added).toBe(0); // safe to run again
     const no1 = await db.player.findFirstOrThrow({ where: { ranking: 1 }, include: { templates: true } });
     expect(no1.templates[0].category).toBe("GOLD");

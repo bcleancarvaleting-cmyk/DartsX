@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { MAX_CARD_VALUE_GBP } from "@/config/tiers";
 import { FINISH_VALUE } from "@/config/tiers";
+import { PARALLELS, type ParallelKind } from "@/domain/darts/cards";
 import { stampCounts } from "./stamps";
 import { loansLeft } from "./loans";
 import { type CardView, toCardView } from "@/lib/view";
@@ -8,8 +9,9 @@ import { db } from "./db";
 import { valueKey, valueTrends } from "./valuation";
 
 export const CARD_INCLUDE = {
-  template: { include: { player: { include: { club: { include: { league: true } } } } } },
+  template: { include: { player: { include: { club: { include: { league: true } }, sport: { select: { code: true } } } } } },
   finish: { select: { kind: true, serial: true } },
+  parallel: { select: { kind: true, serial: true, of: true } },
 } satisfies Prisma.CardInstanceInclude;
 
 export type CardWithTemplate = Prisma.CardInstanceGetPayload<{ include: typeof CARD_INCLUDE }>;
@@ -79,6 +81,9 @@ async function valueHistory(keys: Array<{ playerId: string; category: string }>)
   return out;
 }
 
+/** A card's value multiplier: a football finish, or a darts parallel. */
+const mult = (c: CardWithTemplate) => (c.finish ? FINISH_VALUE[c.finish.kind] : c.parallel ? PARALLELS[c.parallel.kind as ParallelKind].valueX : 1);
+
 /** Turn DB cards into view models with value, trend, acquisition and points won for the owner. */
 export async function enrichCards(cards: CardWithTemplate[]): Promise<CardView[]> {
   const [trends, acquired, points, loans, issued, stamps, history, totw, watchers, tips] = await Promise.all([
@@ -97,7 +102,8 @@ export async function enrichCards(cards: CardWithTemplate[]): Promise<CardView[]
     const t = trends.get(valueKey(c.template.playerId, c.template.category));
     return toCardView(c, {
       // Ruby 2×, Diamond 3×, Rainbow 4× the card's usual value.
-      valueMp: t?.mp != null ? Math.min(MAX_CARD_VALUE_GBP, Math.round(t.mp * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100) : null,
+      // Darts parallels: Silver 1.5× … Black 10×, all within the £10 cap.
+      valueMp: t?.mp != null ? Math.min(MAX_CARD_VALUE_GBP, Math.round(t.mp * mult(c) * 100) / 100) : null,
       trendPct: t?.trendPct ?? null,
       acquired: c.loanGameweeks ? "Loan" : (acquired.get(c.id) ?? null),
       pointsForYou: points.get(c.id) ?? null,
@@ -107,7 +113,7 @@ export async function enrichCards(cards: CardWithTemplate[]): Promise<CardView[]
       totw: totw.has(c.template.playerId),
       watchers: watchers.get(c.template.playerId) ?? 0,
       risingPct: tips.get(`${c.template.playerId}:${c.template.category}`)?.pct,
-      history: (history.get(valueKey(c.template.playerId, c.template.category)) ?? []).map((v) => Math.min(MAX_CARD_VALUE_GBP, Math.round(v * (c.finish ? FINISH_VALUE[c.finish.kind] : 1) * 100) / 100)),
+      history: (history.get(valueKey(c.template.playerId, c.template.category)) ?? []).map((v) => Math.min(MAX_CARD_VALUE_GBP, Math.round(v * mult(c) * 100) / 100)),
     });
   });
 }

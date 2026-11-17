@@ -1,3 +1,4 @@
+import { coloursFor } from "@/domain/darts/cards";
 import { FINISHES } from "@/config/tiers";
 import { type Kit, toKit } from "./kit";
 
@@ -5,7 +6,22 @@ export type Category = "BRONZE" | "SILVER" | "GOLD";
 export type Pos = "GK" | "DEF" | "MID" | "ATT";
 
 /** Serializable card view model shared by server pages and client components. */
+/** DartsX: what a darts card shows (null on football cards). */
+export interface DartsCardInfo {
+  ranking: number | null;
+  nickname: string | null;
+  colours: { c1: string; c2: string; c3?: string; pattern?: "fractured" | "chequer" | null };
+  icon: boolean;
+  /** Icons: their claim to fame, e.g. "16× world champion". */
+  iconFact: string | null;
+  setNo: number | null;
+  earningsGbp: number | null;
+  parallel: { kind: "SILVER" | "BLUE" | "RED" | "GREEN" | "GOLD" | "BLACK" | "PINK"; serial: number | null; of: number | null } | null;
+}
+
 export interface CardView {
+  /** DartsX cards only. */
+  darts?: DartsCardInfo | null;
   id: string;
   playerId: string;
   name: string;
@@ -64,6 +80,7 @@ type CardLike = {
   serial: number;
   loanGameweeks?: number | null;
   finish?: { kind: string; serial: number } | null;
+  parallel?: { kind: string; serial: number | null; of: number | null } | null;
   tradeStatus: string;
   lock: string;
   lockRef: string | null;
@@ -79,6 +96,14 @@ type CardLike = {
       position: string;
       nationality: string;
       squadNumber?: number | null;
+      ranking?: number | null;
+      nickname?: string | null;
+      colours?: unknown;
+      icon?: boolean;
+      setNo?: number | null;
+      earningsGbp?: number | null;
+      marketValueSource?: string | null;
+      sport?: { code: string } | null;
       imageUrl?: string | null;
       imageCredit?: string | null;
       club: {
@@ -116,6 +141,19 @@ export function toCardView(
   const p = c.template.player;
   const loan = c.loanGameweeks ? { total: c.loanGameweeks, left: extra.loan?.left ?? c.loanGameweeks, ended: extra.loan?.ended ?? false } : null;
   return {
+    darts:
+      p.sport?.code === "darts"
+        ? {
+            ranking: p.ranking ?? null,
+            nickname: p.nickname ?? null,
+            colours: coloursFor(p.colours, p.nationality),
+            icon: !!p.icon,
+            iconFact: p.icon ? (p.marketValueSource ?? null) : null,
+            setNo: p.setNo ?? null,
+            earningsGbp: p.earningsGbp ?? null,
+            parallel: c.parallel ? { kind: c.parallel.kind as NonNullable<DartsCardInfo["parallel"]>["kind"], serial: c.parallel.serial, of: c.parallel.of } : null,
+          }
+        : null,
     id: c.id,
     playerId: p.id,
     name: p.displayName,

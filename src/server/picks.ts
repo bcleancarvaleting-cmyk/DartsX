@@ -142,6 +142,7 @@ export async function pickOptions(userId: string, entitlementId: string) {
       packable: false,
       loanGameweeks: null,
       finish: null,
+      parallel: null,
       mintedAt: new Date(0),
       updatedAt: new Date(0),
     };

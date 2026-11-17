@@ -384,7 +384,9 @@ export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_C
 /**
  * DartsX packs (darts sport). Card tiers by world ranking: Legend (top 20, 10 copies each), Top
  * (21–50, 40 each), Tour (51+, 60 each). Legends only ever come in the £10 Rare pack (and the Oche
- * Shop); every other pack is filtered to darters ranked 21st or lower.
+ * Shop); every other pack is filtered to darters ranked 21st or lower. Foil parallels (/99 … 1/1, Pink
+ * Laser) only come from Rare packs. Icons (retired greats, Gold, 25 each) turn up in the regular
+ * packs now and then: a Gold upgrade on a "not top 20" slot can only land on an Icon.
  * Prices (17 Nov 2026): Outsider £2, Challenger £4, Contender £5, Rare £10.
  */
 const NO_LEGENDS = { minRanking: 20 } as const;
@@ -398,7 +400,7 @@ export const DARTS_PACKS: PackSkuSeed[] = [
     kind: "REGULAR",
     region: "Darts",
     priceMinor: 1000,
-    blurb: "2 random Legends from the world's top 20 — only 10 of each exist.",
+    blurb: "2 random Legends from the world's top 20, and the only pack with foil parallels: /99 down to a 1/1, and the Pink Laser.",
     config: {
       mode: "POOL",
       nonTradeable: false,
@@ -408,7 +410,7 @@ export const DARTS_PACKS: PackSkuSeed[] = [
   },
   {
     code: "darts-contender",
-    version: 3,
+    version: 4,
     name: "Contender Pack",
     kind: "REGULAR",
     region: "Darts",
@@ -421,13 +423,14 @@ export const DARTS_PACKS: PackSkuSeed[] = [
       slots: [
         { label: "Contender", count: 1, base: "SILVER", upgrades: [], filters: { minRanking: 20, maxRanking: 25 } },
         { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: { minRanking: 25 } },
-        { label: "Outsider", count: 2, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider", count: 1, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider / Icon", count: 1, base: "BRONZE", upgrades: [{ category: "GOLD", chanceBp: 500 }], filters: NO_LEGENDS },
       ],
     },
   },
   {
     code: "darts-challenger",
-    version: 3,
+    version: 4,
     name: "Challenger Pack",
     kind: "REGULAR",
     region: "Darts",
@@ -439,14 +442,15 @@ export const DARTS_PACKS: PackSkuSeed[] = [
       uniquePlayers: true,
       slots: [
         { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: { minRanking: 25 } },
-        { label: "Outsider", count: 2, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider", count: 1, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider / Icon", count: 1, base: "BRONZE", upgrades: [{ category: "GOLD", chanceBp: 300 }], filters: NO_LEGENDS },
         { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2000 }], filters: NO_LEGENDS },
       ],
     },
   },
   {
     code: "darts-outsider",
-    version: 3,
+    version: 4,
     name: "Outsider Pack",
     kind: "REGULAR",
     region: "Darts",
@@ -457,7 +461,8 @@ export const DARTS_PACKS: PackSkuSeed[] = [
       nonTradeable: false,
       uniquePlayers: true,
       slots: [
-        { label: "Outsider", count: 4, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider", count: 3, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider / Icon", count: 1, base: "BRONZE", upgrades: [{ category: "GOLD", chanceBp: 200 }], filters: NO_LEGENDS },
         { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }], filters: NO_LEGENDS },
       ],
     },

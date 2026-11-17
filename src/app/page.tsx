@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { DartsPackArt } from "@/components/darts-pack-art";
+import { PlayerCard } from "@/components/player-card";
+import { cardViews } from "@/server/views";
 import { LaunchPage, type LaunchParams } from "@/components/launch-page";
 import { OcheHero } from "@/components/oche-hero";
 import { DARTS_PACKS } from "@/config/packs";
 import { DARTS_BOOSTERS } from "@/domain/darts/boosters";
 import { DARTS_SCORING } from "@/domain/darts/scoring";
-import { BANDS, CARD_TIERS, bandFor, tierFor } from "@/domain/darts/teams";
 import { getCurrentUser } from "@/server/auth/session";
 import { dartsGamesList } from "@/server/darts-games";
 import { db } from "@/server/db";
@@ -14,7 +15,6 @@ import { fmtGbp } from "@/server/wallet";
 
 export const dynamic = "force-dynamic";
 
-const BAND_TONE = { CONTENDER: "text-[#f2cf63] border-[#f2cf63]/50", CHALLENGER: "text-[#5ee69a] border-[#12a150]/60", OUTSIDER: "text-[#ff6b7d] border-[#e8152d]/60" } as const;
 
 export default async function Home({ searchParams }: { searchParams: Promise<LaunchParams> }) {
   const user = await getCurrentUser();
@@ -25,12 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
     dartsGamesList(user?.id),
     db.player.findMany({ where: { sport: { code: "darts" }, ranking: { lte: 20 } }, orderBy: { ranking: "asc" }, select: { id: true, displayName: true, ranking: true, nationality: true } }),
     user
-      ? db.cardInstance.findMany({
-          where: { ownerId: user.id, supplyState: "HELD", template: { player: { sport: { code: "darts" } } } },
-          include: { template: { include: { player: { select: { displayName: true, ranking: true } } } } },
-          orderBy: { template: { player: { ranking: "asc" } } },
-          take: 12,
-        })
+      ? cardViews({ ownerId: user.id, supplyState: "HELD", template: { player: { sport: { code: "darts" } } } }, [{ template: { player: { ranking: "asc" } } }], 12)
       : Promise.resolve([]),
   ]);
   const open = games.filter((g) => g.status === "OPEN");
@@ -83,19 +78,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
           {stable.length === 0 ? (
             <p className="panel p-5 text-sm text-muted">Open a pack to sign your first darters.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              {stable.map((c) => {
-                const band = bandFor(c.template.player.ranking);
-                return (
-                  <div key={c.id} className={`rounded-xl border bg-ink-900 p-3 ${BAND_TONE[band]}`}>
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em]">
-                      {BANDS[band].label} · {c.template.edition === "STARTER" ? "Starter" : CARD_TIERS[tierFor(c.template.player.ranking)].label}
-                    </p>
-                    <p className="mt-1 truncate font-semibold text-fg">{c.template.player.displayName}</p>
-                    <p className="text-xs text-faint">World #{c.template.player.ranking ?? "—"} · #{c.serial}{c.lock === "COMPETITION" ? " · in a game" : ""}</p>
-                  </div>
-                );
-              })}
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {stable.map((c) => (
+                <PlayerCard key={c.id} card={c} size="sm" />
+              ))}
             </div>
           )}
         </section>
@@ -120,7 +106,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
       {/* The elite */}
       {elite.length > 0 && (
         <section className="relative overflow-hidden rounded-3xl border border-[#f2cf63]/40 bg-[radial-gradient(80%_120%_at_100%_0%,rgb(232_21_45/0.25),transparent_60%),#0a0a0a] p-6">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#f2cf63]">The Legends · top 20 · only 10 of each · only in the £10 Rare pack</p>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#f2cf63]">The Legends · top 20 · only 10 of each · Rare packs only, with the foil parallels</p>
           <h2 className="mt-1 text-4xl">The elite</h2>
           <ol className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
             {elite.map((p) => (

@@ -1,3 +1,4 @@
+import { DartsCard } from "./darts-card";
 import type { CardView } from "@/lib/view";
 import { FINISH_STYLE, Gem, GemFacets, GemSparkles, RainbowChant } from "./finish-art";
 import { leagueShort, mpLabel } from "@/lib/view";
@@ -55,6 +56,8 @@ export function tierStyle(c: CardView["category"]) {
  * when a photo is set (Player.imageUrl, from Sportmonks); otherwise their shirt with squad number.
  */
 export function PlayerCard({ card, size = "md", className = "", showcase = false }: { card: CardView; size?: "sm" | "md" | "lg"; className?: string; /** Posters: no prices, points or status badges. */ showcase?: boolean }) {
+  // DartsX cards have their own design (player colours, Icons, Rare-pack parallels).
+  if (card.darts) return <DartsCard card={card} size={size} className={className} showcase={showcase} />;
   // Ruby and Diamond are finishes on a Gold: same card in every way, it just looks the part.
   const finish = card.finish ?? null;
   const gem = finish !== null;

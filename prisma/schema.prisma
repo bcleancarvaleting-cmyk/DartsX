@@ -266,6 +266,12 @@ model Player {
   ranking           Int?
   nickname          String?
   earningsGbp       Int?
+  // DartsX card design: the player's shirt colours { c1 main, c2 trim, c3 shade, pattern? }, set by admins.
+  colours           Json?
+  // DartsX Icons: retired greats in the card set (collectable; they don't play in games).
+  icon              Boolean      @default(false)
+  // DartsX set number (1–128 by ranking at launch, Icons after).
+  setNo             Int?
   // Injured or suspended right now (Sportmonks' sidelined list, refreshed by the squad sync).
   sidelinedKind     String? // "INJURY" | "SUSPENSION"
   sidelinedReason   String?
@@ -369,6 +375,7 @@ model CardInstance {
   points     CardPoints[]
   auctions   Auction[]
   finish     CardFinish?
+  parallel   DartsParallel?
   stamps     CardStamp[]
 
   @@unique([templateId, serial])
@@ -1759,4 +1766,20 @@ model OcheThrow {
   createdAt DateTime @default(now())
 
   @@unique([userId, day])
+}
+
+// DartsX parallels: foil versions of a card, only from Rare packs. Numbered runs (/99 … 1/1) are
+// enforced per player by the unique index; the Pink Laser is unnumbered.
+model DartsParallel {
+  id        String       @id @default(uuid()) @db.Uuid
+  cardId    String       @unique @db.Uuid
+  card      CardInstance @relation(fields: [cardId], references: [id])
+  playerId  String       @db.Uuid
+  kind      String       // SILVER | BLUE | RED | GREEN | GOLD | BLACK | PINK
+  serial    Int?
+  of        Int?
+  createdAt DateTime     @default(now())
+
+  @@unique([playerId, kind, serial])
+  @@index([playerId, kind])
 }

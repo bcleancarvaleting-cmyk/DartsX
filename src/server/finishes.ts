@@ -67,4 +67,4 @@ export async function guaranteedFinish(tx: Tx, rng: RandomSource, weights: Recor
 }
 
 /** Packs whose cards are rolled for finishes: Gold packs (and Rare packs). */
-export const rollsFinishes = (skuCode: string) => /gold|rare/i.test(skuCode);
+export const rollsFinishes = (skuCode: string) => !skuCode.startsWith("darts-") && /gold|rare/i.test(skuCode);

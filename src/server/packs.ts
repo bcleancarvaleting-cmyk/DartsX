@@ -176,6 +176,16 @@ export async function openPack(
       }
     }
 
+    // DartsX Rare packs: each card can be a foil parallel (/99 down to 1/1, or a Pink Laser).
+    const parallels = new Map<string, unknown>();
+    if (sku.code === "darts-rare") {
+      const { rollDartsParallel } = await import("./darts-parallels");
+      for (const d of draws) {
+        const got = await rollDartsParallel(tx, audited.withPurpose("parallel"), d);
+        if (got) parallels.set(d.cardId, got);
+      }
+    }
+
     const opening = await tx.packOpening.create({
       data: {
         userId,
@@ -184,7 +194,7 @@ export async function openPack(
         pricePaidMinor: ent.source === "PURCHASE" ? sku.priceMinor : 0,
         paymentRef: ent.source === "PURCHASE" ? ent.sourceRef : null,
         configSnapshot: { code: sku.code, version: sku.version, config: cfg } as unknown as Prisma.InputJsonValue,
-        rngAudit: { source: rng === cryptoRandom ? "node:crypto" : "injected", draws: audited.draws, slots: draws } as unknown as Prisma.InputJsonValue,
+        rngAudit: { source: rng === cryptoRandom ? "node:crypto" : "injected", draws: audited.draws, slots: draws, parallels: Object.fromEntries(parallels) } as unknown as Prisma.InputJsonValue,
       },
     });
 

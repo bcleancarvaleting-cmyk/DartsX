@@ -3,6 +3,7 @@ import { db, withTx } from "@/server/db";
 import { createSimEvent, playSimRound, seedDarters } from "@/server/darts-events";
 import { createGamesForEvent, enterDartsGame, potFor, refreshGamePoints, runDartsJobs, settleDartsGame, withdrawDartsEntry } from "@/server/darts-games";
 import { ensurePublished, grantPack, openPack } from "@/server/packs";
+import { cardViews } from "@/server/views";
 import { balancesFor, credit } from "@/server/wallet";
 import { makeUser, resetDb } from "./fixtures";
 
@@ -41,9 +42,9 @@ async function drawByBand(roundId: string) {
 
 describe("DartsX games", () => {
   it("a small circulation: Legends 10 each (top 20), Tops 40 (21–50), Tour 60 (51+); values ≤ £5", async () => {
-    const vals = await db.mPValuation.findMany({ where: { method: "darts-v1" } });
-    expect(vals.length).toBe(128);
-    expect(Math.max(...vals.map((v) => v.valueMp))).toBeLessThanOrEqual(5);
+    const vals = await db.mPValuation.findMany({ where: { method: "darts-start" } });
+    expect(vals.length).toBe(141);
+    expect(Math.max(...vals.map((v) => v.valueMp))).toBeLessThanOrEqual(10);
     const count = async (where: object) => db.cardInstance.count({ where: { template: { edition: "STANDARD", player: where } } });
     expect(await count({ ranking: 1 })).toBe(10);
     // The rankings skip a few places, so count darters rather than assume 20 / 30 / 78.
@@ -53,6 +54,61 @@ describe("DartsX games", () => {
     expect(await count({ ranking: { gt: 50 } })).toBe((await darters({ gt: 50 })) * 60);
     const no1 = await db.cardTemplate.findFirstOrThrow({ where: { edition: "STANDARD", player: { ranking: 1 } } });
     expect(no1).toMatchObject({ category: "GOLD", maxSupply: 10 });
+  });
+
+  it("the Rare pack rolls foil parallels; numbered runs never exceed their print run", async () => {
+    const { userId } = await makeUser("foil");
+    const no1 = await db.player.findFirstOrThrow({ where: { ranking: 1 } });
+    const { claimParallel } = await import("@/server/darts-parallels");
+    // Black is a 1/1: only one ever, per player.
+    const cards = await db.cardInstance.findMany({ where: { template: { playerId: no1.id, edition: "STANDARD" } }, take: 2 });
+    const first = await withTx((tx) => claimParallel(tx, "BLACK", { cardId: cards[0].id, playerId: no1.id }));
+    expect(first).toEqual({ kind: "BLACK", serial: 1, of: 1 });
+    expect(await withTx((tx) => claimParallel(tx, "BLACK", { cardId: cards[1].id, playerId: no1.id }))).toBeNull();
+    // A forced roll in the opening (rolls of 0 land on Black, sold out for No. 1, so it drops down a run).
+    const rng = { int: () => 0 };
+    for (let i = 0; i < 3; i++) {
+      const e = await withTx(async (tx) => {
+        await ensurePublished(tx, "darts-rare");
+        return grantPack(tx, { userId, skuCode: "darts-rare", source: "STARTER", sourceRef: `foil${i}` });
+      });
+      await openPack(userId, e.id, rng);
+    }
+    const got = await db.cardInstance.findMany({ where: { ownerId: userId, template: { edition: "STANDARD" } }, include: { parallel: true } });
+    expect(got).toHaveLength(6);
+    expect(got.every((c) => c.parallel)).toBe(true); // every roll was a hit
+    const views = await cardViews({ id: { in: got.map((c) => c.id) } });
+    expect(views.every((v) => v.darts?.parallel && (v.valueMp ?? 0) <= 10)).toBe(true);
+    // Print runs hold: no player has two of the same numbered serial.
+    const all = await db.dartsParallel.findMany({ where: { serial: { not: null } } });
+    expect(new Set(all.map((p) => `${p.playerId}:${p.kind}:${p.serial}`)).size).toBe(all.length);
+  });
+
+  it("Icons, colours and nicknames load; base cards wear the player's colours", async () => {
+    const taylor = await db.player.findFirstOrThrow({ where: { displayName: "Phil Taylor" } });
+    expect(taylor).toMatchObject({ icon: true, ranking: null, nickname: "The Power" });
+    const littler = await db.player.findFirstOrThrow({ where: { displayName: "Luke Littler" } });
+    expect(littler.colours).toMatchObject({ c1: "#6a1fd1", c2: "#e8ff1a", pattern: "fractured" });
+    expect(littler.setNo).toBe(1);
+    const mvg = await db.player.findFirstOrThrow({ where: { displayName: "Michael van Gerwen" } });
+    expect(mvg.ranking).toBe(10);
+    const [v] = await cardViews({ template: { playerId: littler.id, edition: "STANDARD" } }, undefined, 1);
+    expect(v.darts).toMatchObject({ ranking: 1, nickname: "The Nuke", icon: false, parallel: null });
+    expect(v.darts!.colours.c1).toBe("#6a1fd1");
+    expect(v.valueMp).toBe(10);
+    // Admin edits are kept when the set is loaded again.
+    await db.player.update({ where: { id: littler.id }, data: { nickname: "Nuke", colours: { c1: "#000000", c2: "#ffffff", c3: "#000000" } } });
+    await seedDarters();
+    expect(await db.player.findUniqueOrThrow({ where: { id: littler.id } })).toMatchObject({ nickname: "Nuke", colours: { c1: "#000000" } });
+  });
+
+  it("a fair starter stable is worth about £10", async () => {
+    const { userId } = await makeUser("tenner");
+    const cards = await db.cardInstance.findMany({ where: { ownerId: userId }, include: { template: { include: { player: true } } } });
+    const { startingValueGbp } = await import("@/domain/darts/cards");
+    const total = cards.reduce((s, c) => s + startingValueGbp(c.template.player.ranking), 0);
+    expect(total).toBeGreaterThan(8);
+    expect(total).toBeLessThan(12);
   });
 
   it("regular packs never hold a Legend", async () => {
@@ -66,7 +122,8 @@ describe("DartsX games", () => {
     }
     const got = await db.cardInstance.findMany({ where: { ownerId: userId, template: { edition: "STANDARD" } }, include: { template: { include: { player: true } } } });
     expect(got).toHaveLength(20);
-    expect(got.every((c) => c.template.player.ranking! > 20)).toBe(true);
+    // Never a Legend; the odd Icon (unranked) is fine.
+    expect(got.every((c) => c.template.player.icon || c.template.player.ranking! > 20)).toBe(true);
     // The Contender pack's Contender is a Top ranked 21–25.
     expect(got.some((c) => c.template.player.ranking! <= 25)).toBe(true);
   });
@@ -141,7 +198,8 @@ describe("DartsX games", () => {
     // The booster is used up.
     expect((await db.dartsBooster.findUniqueOrThrow({ where: { id: booster.id } })).usedEntryId).toBe(entryA.id);
 
-    for (const p of [b, c, d]) await enterDartsGame(p.userId, game.id, { picks: [{ cardId: p.cards[0] }, { cardId: p.cards[1], captain: true }, { cardId: p.cards[2] }] });
+    // Same darters and captain as Ann, but no booster: Ann's Hot Hand puts her ahead whatever the darts do.
+    for (const p of [b, c, d]) await enterDartsGame(p.userId, game.id, { picks: [{ cardId: p.cards[0], captain: true }, { cardId: p.cards[1] }, { cardId: p.cards[2] }] });
     // Withdraw: £1 back, cards and booster free.
     const dEntry = await db.dartsEntry.findFirstOrThrow({ where: { userId: d.userId } });
     await withdrawDartsEntry(d.userId, dEntry.id);
@@ -152,7 +210,7 @@ describe("DartsX games", () => {
     await db.dartsGame.update({ where: { id: game.id }, data: { locksAt: new Date(), status: "LOCKED" } });
     await playSimRound(r1.id);
     const totals = await refreshGamePoints(game.id);
-    // Ann (captain on the Contender, with Hot Hand) beats Bob & Cat, who picked the same darters without the boost.
+    // Ann (Hot Hand on her captain) beats Bob & Cat, who picked the same team without the boost.
     expect(totals[0].id).toBe(entryA.id);
     const res = await settleDartsGame(game.id);
     expect(res!.pot).toBe(potFor({ entryFeeMinor: 100, potPct: 50 }, 3)); // 3 × £1 × 50% = £1.50

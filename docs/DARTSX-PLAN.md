@@ -55,7 +55,7 @@ customer-facing design are darts-first and new.
   −3.5p a place, 50p floor).
 - **Boosters**: every new manager gets one of each of the six; one per entry, on one darter.
 - **Starter**: 6 untradeable darters (2 Contenders ranked 11–25, 2 Challengers, 2 Outsiders).
-- **Packs**: Outsider £1.99, Challenger £3.99, Contender £7.99 — never the top 10 (`minRanking` slot filter).
+- **Packs**: Outsider £2, Challenger £4, Contender £5 — never the top 10 (`minRanking` slot filter); Rare £10 — 2 random darters from the top 10.
 - **Supply**: on first load each darter gets a pack-pool release (Gold 50, Silver 100, Bronze 150 copies).
 - **Jobs** (every 5 min): lock started games, throw simulated rounds 20 min after they start,
   keep a simulated event on the calendar, live points, settle.

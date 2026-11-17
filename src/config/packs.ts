@@ -388,6 +388,7 @@ export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_C
  * (26–50), Bronze = Outsiders (51+).
  */
 const NO_TOP_TEN = { minRanking: 10 } as const;
+// Prices (17 Nov 2026): Outsider £2, Challenger £4, Contender £5, Rare £10 (v2 = the new prices).
 export const DARTS_STARTER_PACK_CODE = "darts-starter";
 export const DARTS_RARE_PACK_CODE = "darts-rare";
 export const DARTS_PACKS: PackSkuSeed[] = [
@@ -408,11 +409,11 @@ export const DARTS_PACKS: PackSkuSeed[] = [
   },
   {
     code: "darts-outsider",
-    version: 1,
+    version: 2,
     name: "Outsider Pack",
     kind: "REGULAR",
     region: "Darts",
-    priceMinor: 199,
+    priceMinor: 200,
     blurb: "5 darters ranked 51+, with a chance of a Challenger.",
     config: {
       mode: "POOL",
@@ -426,11 +427,11 @@ export const DARTS_PACKS: PackSkuSeed[] = [
   },
   {
     code: "darts-challenger",
-    version: 1,
+    version: 2,
     name: "Challenger Pack",
     kind: "REGULAR",
     region: "Darts",
-    priceMinor: 399,
+    priceMinor: 400,
     blurb: "5 darters ranked 26–50, with a chance of a Contender.",
     config: {
       mode: "POOL",
@@ -444,11 +445,11 @@ export const DARTS_PACKS: PackSkuSeed[] = [
   },
   {
     code: "darts-contender",
-    version: 1,
+    version: 2,
     name: "Contender Pack",
     kind: "REGULAR",
     region: "Darts",
-    priceMinor: 799,
+    priceMinor: 500,
     blurb: "5 darters: 2 Contenders (ranked 11–25) guaranteed. Never the top 10.",
     config: {
       mode: "POOL",

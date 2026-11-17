@@ -262,6 +262,10 @@ model Player {
   // Licensed headshot. Null until image rights are confirmed (spec §10); cards show a kit graphic instead.
   imageUrl          String?
   imageCredit       String?
+  // DartsX: world ranking (PDC Order of Merit), nickname and ranking prize money.
+  ranking           Int?
+  nickname          String?
+  earningsGbp       Int?
   // Injured or suspended right now (Sportmonks' sidelined list, refreshed by the squad sync).
   sidelinedKind     String? // "INJURY" | "SUSPENSION"
   sidelinedReason   String?
@@ -1594,4 +1598,67 @@ model SiteImage {
   name        String
   createdById String?  @db.Uuid
   createdAt   DateTime @default(now())
+}
+
+
+// ─── DartsX: tour events → rounds → darter-vs-darter matches ───────────────────────────────
+enum DartsStatus {
+  UPCOMING
+  LIVE
+  FINISHED
+}
+
+model DartsEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String
+  tour      String      // e.g. "PDC European Tour", "Premier League", "World Championship"
+  venue     String?
+  startsAt  DateTime
+  endsAt    DateTime
+  status    DartsStatus @default(UPCOMING)
+  // Simulated from real rankings and averages until the live darts feed is connected.
+  simulated Boolean     @default(true)
+  // The live data provider's event id, once connected.
+  providerRef String?   @unique
+  createdAt DateTime    @default(now())
+
+  rounds DartsRound[]
+}
+
+model DartsRound {
+  id         String      @id @default(uuid()) @db.Uuid
+  eventId    String      @db.Uuid
+  event      DartsEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  number     Int         // 1 = first round
+  name       String      // "Round 1", "Last 16", "Quarter-finals", "Semi-finals", "Final"
+  stage      String?     // QF | SF | F when winning a match here reaches the next stage (scoring bonus)
+  legsToWin  Int         // first to N legs
+  startsAt   DateTime
+  status     DartsStatus @default(UPCOMING)
+
+  matches DartsMatch[]
+
+  @@unique([eventId, number])
+}
+
+model DartsMatch {
+  id        String      @id @default(uuid()) @db.Uuid
+  roundId   String      @db.Uuid
+  round     DartsRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  order     Int
+  aId       String      @db.Uuid
+  bId       String      @db.Uuid
+  legsA     Int         @default(0)
+  legsB     Int         @default(0)
+  winnerId  String?     @db.Uuid
+  status    DartsStatus @default(UPCOMING)
+  startsAt  DateTime
+  // Each darter's DartsStatLine (average, 180s, 140+, checkouts, checkout %, 9-darters…).
+  statsA    Json?
+  statsB    Json?
+  providerRef String?   @unique
+
+  @@index([roundId])
+  @@index([aId])
+  @@index([bId])
 }

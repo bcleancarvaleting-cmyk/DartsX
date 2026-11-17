@@ -1,0 +1,774 @@
+{
+ "source": "PDC World Rankings (Order of Merit), via Wikipedia",
+ "asOf": "2026-11-17",
+ "darters": [
+  {
+   "rank": 1,
+   "name": "Luke Littler",
+   "country": "England",
+   "earningsGbp": 3141000
+  },
+  {
+   "rank": 2,
+   "name": "Luke Humphries",
+   "country": "England",
+   "earningsGbp": 1062500
+  },
+  {
+   "rank": 3,
+   "name": "Gian van Veen",
+   "country": "Netherlands",
+   "earningsGbp": 1058750
+  },
+  {
+   "rank": 4,
+   "name": "Gerwyn Price",
+   "country": "Wales",
+   "earningsGbp": 833500
+  },
+  {
+   "rank": 5,
+   "name": "Jonny Clayton",
+   "country": "Wales",
+   "earningsGbp": 717250
+  },
+  {
+   "rank": 6,
+   "name": "Ross Smith",
+   "country": "England",
+   "earningsGbp": 715250
+  },
+  {
+   "rank": 7,
+   "name": "James Wade",
+   "country": "England",
+   "earningsGbp": 672750
+  },
+  {
+   "rank": 8,
+   "name": "Josh Rock",
+   "country": "Northern Ireland",
+   "earningsGbp": 603750
+  },
+  {
+   "rank": 9,
+   "name": "Stephen Bunting",
+   "country": "England",
+   "earningsGbp": 598000
+  },
+  {
+   "rank": 10,
+   "name": "Danny Noppert",
+   "country": "Netherlands",
+   "earningsGbp": 595750
+  },
+  {
+   "rank": 11,
+   "name": "Nathan Aspinall",
+   "country": "England",
+   "earningsGbp": 595500
+  },
+  {
+   "rank": 13,
+   "name": "Wessel Nijman",
+   "country": "Netherlands",
+   "earningsGbp": 590750
+  },
+  {
+   "rank": 14,
+   "name": "Gary Anderson",
+   "country": "Scotland",
+   "earningsGbp": 572000
+  },
+  {
+   "rank": 15,
+   "name": "Ryan Searle",
+   "country": "England",
+   "earningsGbp": 559000
+  },
+  {
+   "rank": 16,
+   "name": "Chris Dobey",
+   "country": "England",
+   "earningsGbp": 550500
+  },
+  {
+   "rank": 17,
+   "name": "Luke Woodhouse",
+   "country": "England",
+   "earningsGbp": 509000
+  },
+  {
+   "rank": 18,
+   "name": "Jermaine Wattimena",
+   "country": "Netherlands",
+   "earningsGbp": 507500
+  },
+  {
+   "rank": 19,
+   "name": "Krzysztof Ratajski",
+   "country": "Poland",
+   "earningsGbp": 492750
+  },
+  {
+   "rank": 20,
+   "name": "Martin Schindler",
+   "country": "Germany",
+   "earningsGbp": 466000
+  },
+  {
+   "rank": 21,
+   "name": "Damon Heta",
+   "country": "Australia",
+   "earningsGbp": 426750
+  },
+  {
+   "rank": 23,
+   "name": "Kevin Doets",
+   "country": "Netherlands",
+   "earningsGbp": 399750
+  },
+  {
+   "rank": 24,
+   "name": "Rob Cross",
+   "country": "England",
+   "earningsGbp": 398250
+  },
+  {
+   "rank": 25,
+   "name": "Ryan Joyce",
+   "country": "England",
+   "earningsGbp": 397500
+  },
+  {
+   "rank": 26,
+   "name": "Cameron Menzies",
+   "country": "Scotland",
+   "earningsGbp": 387000
+  },
+  {
+   "rank": 27,
+   "name": "Andrew Gilding",
+   "country": "England",
+   "earningsGbp": 353000
+  },
+  {
+   "rank": 28,
+   "name": "Niels Zonneveld",
+   "country": "Netherlands",
+   "earningsGbp": 336250
+  },
+  {
+   "rank": 29,
+   "name": "Daryl Gurney",
+   "country": "Northern Ireland",
+   "earningsGbp": 290500
+  },
+  {
+   "rank": 31,
+   "name": "Dave Chisnall",
+   "country": "England",
+   "earningsGbp": 287750
+  },
+  {
+   "rank": 32,
+   "name": "Joe Cullen",
+   "country": "England",
+   "earningsGbp": 273500
+  },
+  {
+   "rank": 33,
+   "name": "Mike De Decker",
+   "country": "Belgium",
+   "earningsGbp": 252500
+  },
+  {
+   "rank": 34,
+   "name": "Niko Springer",
+   "country": "Germany",
+   "earningsGbp": 251750
+  },
+  {
+   "rank": 35,
+   "name": "Peter Wright",
+   "country": "Scotland",
+   "earningsGbp": 228000
+  },
+  {
+   "rank": 36,
+   "name": "Ricardo Pietreczko",
+   "country": "Germany",
+   "earningsGbp": 227250
+  },
+  {
+   "rank": 37,
+   "name": "Michael Smith",
+   "country": "England",
+   "earningsGbp": 222750
+  },
+  {
+   "rank": 38,
+   "name": "Justin Hood",
+   "country": "England",
+   "earningsGbp": 198500
+  },
+  {
+   "rank": 39,
+   "name": "Jeffrey de Graaf",
+   "country": "Sweden",
+   "earningsGbp": 195000
+  },
+  {
+   "rank": 40,
+   "name": "Callan Rydz",
+   "country": "England",
+   "earningsGbp": 194250
+  },
+  {
+   "rank": 41,
+   "name": "Mickey Mansell",
+   "country": "Northern Ireland",
+   "earningsGbp": 193750
+  },
+  {
+   "rank": 42,
+   "name": "Karel Sedláček",
+   "country": "Czech Republic",
+   "earningsGbp": 193500
+  },
+  {
+   "rank": 43,
+   "name": "Martin Lukeman",
+   "country": "England",
+   "earningsGbp": 186500
+  },
+  {
+   "rank": 44,
+   "name": "Kim Huybrechts",
+   "country": "Belgium",
+   "earningsGbp": 180500
+  },
+  {
+   "rank": 45,
+   "name": "Scott Williams",
+   "country": "England",
+   "earningsGbp": 177750
+  },
+  {
+   "rank": 46,
+   "name": "James Hurrell",
+   "country": "England",
+   "earningsGbp": 177500
+  },
+  {
+   "rank": 47,
+   "name": "Raymond van Barneveld",
+   "country": "Netherlands",
+   "earningsGbp": 173000
+  },
+  {
+   "rank": 48,
+   "name": "Brendan Dolan",
+   "country": "Northern Ireland",
+   "earningsGbp": 172250
+  },
+  {
+   "rank": 49,
+   "name": "Madars Razma",
+   "country": "Latvia",
+   "earningsGbp": 171750
+  },
+  {
+   "rank": 50,
+   "name": "Connor Scutt",
+   "country": "England",
+   "earningsGbp": 169750
+  },
+  {
+   "rank": 51,
+   "name": "Sebastian Białecki",
+   "country": "Poland",
+   "earningsGbp": 168750
+  },
+  {
+   "rank": 52,
+   "name": "Ricky Evans",
+   "country": "England",
+   "earningsGbp": 167500
+  },
+  {
+   "rank": 53,
+   "name": "Gabriel Clemens",
+   "country": "Germany",
+   "earningsGbp": 160000
+  },
+  {
+   "rank": 54,
+   "name": "Ritchie Edhouse",
+   "country": "England",
+   "earningsGbp": 156250
+  },
+  {
+   "rank": 55,
+   "name": "Mensur Suljović",
+   "country": "Austria",
+   "earningsGbp": 155750
+  },
+  {
+   "rank": 56,
+   "name": "Keane Barry",
+   "country": "Republic of Ireland",
+   "earningsGbp": 151000
+  },
+  {
+   "rank": 57,
+   "name": "Ian White",
+   "country": "England",
+   "earningsGbp": 143750
+  },
+  {
+   "rank": 58,
+   "name": "Richard Veenstra",
+   "country": "Netherlands",
+   "earningsGbp": 140250
+  },
+  {
+   "rank": 59,
+   "name": "Bradley Brooks",
+   "country": "England",
+   "earningsGbp": 135750
+  },
+  {
+   "rank": 60,
+   "name": "Dimitri Van den Bergh",
+   "country": "Belgium",
+   "earningsGbp": 135500
+  },
+  {
+   "rank": 61,
+   "name": "Alan Soutar",
+   "country": "Scotland",
+   "earningsGbp": 130500
+  },
+  {
+   "rank": 62,
+   "name": "Robert Owen",
+   "country": "Wales",
+   "earningsGbp": 128250
+  },
+  {
+   "rank": 63,
+   "name": "Lukas Wenig",
+   "country": "Germany",
+   "earningsGbp": 119500
+  },
+  {
+   "rank": 64,
+   "name": "Nick Kenny",
+   "country": "Wales",
+   "earningsGbp": 119000
+  },
+  {
+   "rank": 65,
+   "name": "Cristo Reyes",
+   "country": "Spain",
+   "earningsGbp": 117250
+  },
+  {
+   "rank": 66,
+   "name": "Max Hopp",
+   "country": "Germany",
+   "earningsGbp": 116250
+  },
+  {
+   "rank": 67,
+   "name": "Ryan Meikle",
+   "country": "England",
+   "earningsGbp": 115750
+  },
+  {
+   "rank": 68,
+   "name": "Mario Vandenbogaerde",
+   "country": "Belgium",
+   "earningsGbp": 114000
+  },
+  {
+   "rank": 69,
+   "name": "Cam Crabtree",
+   "country": "England",
+   "earningsGbp": 107750
+  },
+  {
+   "rank": 70,
+   "name": "Wesley Plaisier",
+   "country": "Netherlands",
+   "earningsGbp": 103500
+  },
+  {
+   "rank": 71,
+   "name": "Maik Kuivenhoven",
+   "country": "Netherlands",
+   "earningsGbp": 98750
+  },
+  {
+   "rank": 72,
+   "name": "Thibault Tricole",
+   "country": "France",
+   "earningsGbp": 98500
+  },
+  {
+   "rank": 73,
+   "name": "Tom Bissell",
+   "country": "England",
+   "earningsGbp": 84250
+  },
+  {
+   "rank": 74,
+   "name": "Beau Greaves",
+   "country": "England",
+   "earningsGbp": 81750
+  },
+  {
+   "rank": 75,
+   "name": "Adam Lipscombe",
+   "country": "England",
+   "earningsGbp": 81250
+  },
+  {
+   "rank": 76,
+   "name": "Darryl Pilgrim",
+   "country": "England",
+   "earningsGbp": 72000
+  },
+  {
+   "rank": 77,
+   "name": "Charlie Manby",
+   "country": "England",
+   "earningsGbp": 69250
+  },
+  {
+   "rank": 78,
+   "name": "Cor Dekker",
+   "country": "Norway",
+   "earningsGbp": 68750
+  },
+  {
+   "rank": 79,
+   "name": "Dominik Grüllich",
+   "country": "Germany",
+   "earningsGbp": 65250
+  },
+  {
+   "rank": 80,
+   "name": "Christian Kist",
+   "country": "Netherlands",
+   "earningsGbp": 63000
+  },
+  {
+   "rank": 81,
+   "name": "Tom Sykes",
+   "country": "England",
+   "earningsGbp": 62250
+  },
+  {
+   "rank": 82,
+   "name": "Andy Boulton",
+   "country": "Scotland",
+   "earningsGbp": 57250
+  },
+  {
+   "rank": 84,
+   "name": "Jim Long",
+   "country": "Canada",
+   "earningsGbp": 56500
+  },
+  {
+   "rank": 85,
+   "name": "Oskar Lukasiak",
+   "country": "Sweden",
+   "earningsGbp": 49750
+  },
+  {
+   "rank": 86,
+   "name": "Joe Hunt",
+   "country": "England",
+   "earningsGbp": 48000
+  },
+  {
+   "rank": 87,
+   "name": "Jimmy van Schie",
+   "country": "Netherlands",
+   "earningsGbp": 46250
+  },
+  {
+   "rank": 89,
+   "name": "Thomas Lovely",
+   "country": "England",
+   "earningsGbp": 44250
+  },
+  {
+   "rank": 90,
+   "name": "Leon Weber",
+   "country": "Germany",
+   "earningsGbp": 41250
+  },
+  {
+   "rank": 91,
+   "name": "Viktor Tingström",
+   "country": "Sweden",
+   "earningsGbp": 41000
+  },
+  {
+   "rank": 92,
+   "name": "Shane McGuirk",
+   "country": "Republic of Ireland",
+   "earningsGbp": 39250
+  },
+  {
+   "rank": 93,
+   "name": "Marvin van Velzen",
+   "country": "Netherlands",
+   "earningsGbp": 39000
+  },
+  {
+   "rank": 94,
+   "name": "Alexander Merkx",
+   "country": "Netherlands",
+   "earningsGbp": 38000
+  },
+  {
+   "rank": 95,
+   "name": "Owen Bates",
+   "country": "England",
+   "earningsGbp": 37500
+  },
+  {
+   "rank": 96,
+   "name": "Tavis Dudeney",
+   "country": "England",
+   "earningsGbp": 37250
+  },
+  {
+   "rank": 98,
+   "name": "Adam Gawlas",
+   "country": "Czech Republic",
+   "earningsGbp": 37000
+  },
+  {
+   "rank": 99,
+   "name": "Jurjen van der Velde",
+   "country": "Netherlands",
+   "earningsGbp": 35000
+  },
+  {
+   "rank": 100,
+   "name": "Greg Ritchie",
+   "country": "Scotland",
+   "earningsGbp": 34750
+  },
+  {
+   "rank": 101,
+   "name": "Jeffrey de Zwaan",
+   "country": "Netherlands",
+   "earningsGbp": 34000
+  },
+  {
+   "rank": 102,
+   "name": "Kai Gotthardt",
+   "country": "Germany",
+   "earningsGbp": 33000
+  },
+  {
+   "rank": 103,
+   "name": "Adam Paxton",
+   "country": "England",
+   "earningsGbp": 32750
+  },
+  {
+   "rank": 104,
+   "name": "David Sharp",
+   "country": "Scotland",
+   "earningsGbp": 32500
+  },
+  {
+   "rank": 105,
+   "name": "Stephen Burton",
+   "country": "England",
+   "earningsGbp": 32250
+  },
+  {
+   "rank": 106,
+   "name": "Chris Landman",
+   "country": "Netherlands",
+   "earningsGbp": 30750
+  },
+  {
+   "rank": 107,
+   "name": "Mervyn King",
+   "country": "England",
+   "earningsGbp": 30250
+  },
+  {
+   "rank": 108,
+   "name": "Benjamin Pratnemer",
+   "country": "Slovenia",
+   "earningsGbp": 29750
+  },
+  {
+   "rank": 109,
+   "name": "Martijn Dragt",
+   "country": "Netherlands",
+   "earningsGbp": 29500
+  },
+  {
+   "rank": 110,
+   "name": "Adam Warner",
+   "country": "England",
+   "earningsGbp": 28750
+  },
+  {
+   "rank": 112,
+   "name": "Jeffrey Sparidaans",
+   "country": "Netherlands",
+   "earningsGbp": 28250
+  },
+  {
+   "rank": 114,
+   "name": "Tommy Lishman",
+   "country": "England",
+   "earningsGbp": 27000
+  },
+  {
+   "rank": 115,
+   "name": "Sietse Lap",
+   "country": "Netherlands",
+   "earningsGbp": 24500
+  },
+  {
+   "rank": 116,
+   "name": "Niall Culleton",
+   "country": "Republic of Ireland",
+   "earningsGbp": 24000
+  },
+  {
+   "rank": 118,
+   "name": "Scott Waites",
+   "country": "England",
+   "earningsGbp": 22500
+  },
+  {
+   "rank": 121,
+   "name": "Steve Lennon",
+   "country": "Republic of Ireland",
+   "earningsGbp": 22000
+  },
+  {
+   "rank": 122,
+   "name": "Jack Tweddell",
+   "country": "England",
+   "earningsGbp": 21750
+  },
+  {
+   "rank": 123,
+   "name": "Arno Merk",
+   "country": "Germany",
+   "earningsGbp": 21500
+  },
+  {
+   "rank": 124,
+   "name": "Maximilian Czerwinski",
+   "country": "Germany",
+   "earningsGbp": 20000
+  },
+  {
+   "rank": 125,
+   "name": "Stephen Rosney",
+   "country": "Republic of Ireland",
+   "earningsGbp": 19500
+  },
+  {
+   "rank": 126,
+   "name": "Rhys Griffin",
+   "country": "Wales",
+   "earningsGbp": 19250
+  },
+  {
+   "rank": 127,
+   "name": "Stefaan Henderyck",
+   "country": "Belgium",
+   "earningsGbp": 18000
+  },
+  {
+   "rank": 128,
+   "name": "Nathan Potter",
+   "country": "England",
+   "earningsGbp": 17000
+  },
+  {
+   "rank": 129,
+   "name": "Carl Sneyd",
+   "country": "England",
+   "earningsGbp": 16750
+  },
+  {
+   "rank": 130,
+   "name": "Harry Ward",
+   "country": "England",
+   "earningsGbp": 16250
+  },
+  {
+   "rank": 131,
+   "name": "Tytus Kanik",
+   "country": "Poland",
+   "earningsGbp": 15000
+  },
+  {
+   "rank": 132,
+   "name": "Samuel Price",
+   "country": "England",
+   "earningsGbp": 14000
+  },
+  {
+   "rank": 133,
+   "name": "Daniel Klose",
+   "country": "Germany",
+   "earningsGbp": 13250
+  },
+  {
+   "rank": 134,
+   "name": "Jack Aldridge",
+   "country": "England",
+   "earningsGbp": 13000
+  },
+  {
+   "rank": 135,
+   "name": "Daniel Ayres",
+   "country": "England",
+   "earningsGbp": 12750
+  },
+  {
+   "rank": 136,
+   "name": "Yorick Hofkens",
+   "country": "Germany",
+   "earningsGbp": 12500
+  },
+  {
+   "rank": 137,
+   "name": "Pascal Rupprecht",
+   "country": "Germany",
+   "earningsGbp": 12250
+  },
+  {
+   "rank": 139,
+   "name": "Andy Baetens",
+   "country": "Belgium",
+   "earningsGbp": 11500
+  },
+  {
+   "rank": 141,
+   "name": "Rusty-Jake Rodriguez",
+   "country": "Austria",
+   "earningsGbp": 10000
+  }
+ ]
+}

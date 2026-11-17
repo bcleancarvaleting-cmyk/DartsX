@@ -39,3 +39,25 @@ describe("DartsX teams and packs", () => {
     expect(teamIssues([{ darterId: "a", ranking: 3, captain: true }, { darterId: "b", ranking: 4 }, { darterId: "c", ranking: 77 }])).toContain("Only one Contender");
   });
 });
+
+import { expectedAverage, knockoutRounds, seededPairs, simulateMatch } from "@/domain/darts/simulate";
+
+describe("DartsX simulator", () => {
+  it("plays a full match to the legs needed, deterministically", () => {
+    const m = simulateMatch(1, 64, 6, "seed-1");
+    expect(Math.max(m.legsA, m.legsB)).toBe(6);
+    expect(m.a.won !== m.b.won).toBe(true);
+    expect(m.a.checkouts.length).toBe(m.legsA);
+    expect(simulateMatch(1, 64, 6, "seed-1")).toEqual(m);
+  });
+  it("better-ranked darters average more and win more often", () => {
+    expect(expectedAverage(1)).toBeGreaterThan(expectedAverage(50));
+    let topWins = 0;
+    for (let i = 0; i < 300; i++) if (simulateMatch(1, 100, 6, `s${i}`).legsA === 6) topWins++;
+    expect(topWins).toBeGreaterThan(200);
+  });
+  it("draws and rounds: 1 v 32 and the knockout ladder with stage bonuses", () => {
+    expect(seededPairs([1, 2, 3, 4])).toEqual([[1, 4], [2, 3]]);
+    expect(knockoutRounds(32).map((r) => [r.name, r.legsToWin, r.stage])).toEqual([["Round of 32", 6, null], ["Last 16", 6, "QF"], ["Quarter-finals", 7, "SF"], ["Semi-finals", 7, "F"], ["Final", 8, "WINNER"]]);
+  });
+});

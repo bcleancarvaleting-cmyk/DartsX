@@ -37,3 +37,11 @@ export async function withdrawDartsAction(_: ActionResult | null, form: FormData
   revalidatePath("/darts");
   return res;
 }
+
+/** The pack-shop throw: three darts, once a day, always a discount. */
+export async function throwOcheAction(): Promise<ActionResult<import("@/server/oche-throw").OcheResult>> {
+  const user = await requireUser();
+  const res = await attempt(async () => (await import("@/server/oche-throw")).throwAtOche(user.id));
+  revalidatePath("/packs");
+  return res;
+}

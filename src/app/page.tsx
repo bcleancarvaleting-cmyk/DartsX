@@ -5,7 +5,7 @@ import { OcheHero } from "@/components/oche-hero";
 import { DARTS_PACKS } from "@/config/packs";
 import { DARTS_BOOSTERS } from "@/domain/darts/boosters";
 import { DARTS_SCORING } from "@/domain/darts/scoring";
-import { BANDS, bandFor } from "@/domain/darts/teams";
+import { BANDS, CARD_TIERS, bandFor, tierFor } from "@/domain/darts/teams";
 import { getCurrentUser } from "@/server/auth/session";
 import { dartsGamesList } from "@/server/darts-games";
 import { db } from "@/server/db";
@@ -23,7 +23,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
 
   const [games, elite, stable] = await Promise.all([
     dartsGamesList(user?.id),
-    db.player.findMany({ where: { sport: { code: "darts" }, ranking: { lte: 10 } }, orderBy: { ranking: "asc" }, select: { id: true, displayName: true, ranking: true, nationality: true } }),
+    db.player.findMany({ where: { sport: { code: "darts" }, ranking: { lte: 20 } }, orderBy: { ranking: "asc" }, select: { id: true, displayName: true, ranking: true, nationality: true } }),
     user
       ? db.cardInstance.findMany({
           where: { ownerId: user.id, supplyState: "HELD", template: { player: { sport: { code: "darts" } } } },
@@ -88,7 +88,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
                 const band = bandFor(c.template.player.ranking);
                 return (
                   <div key={c.id} className={`rounded-xl border bg-ink-900 p-3 ${BAND_TONE[band]}`}>
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em]">{BANDS[band].label}</p>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em]">
+                      {BANDS[band].label} · {c.template.edition === "STARTER" ? "Starter" : CARD_TIERS[tierFor(c.template.player.ranking)].label}
+                    </p>
                     <p className="mt-1 truncate font-semibold text-fg">{c.template.player.displayName}</p>
                     <p className="text-xs text-faint">World #{c.template.player.ranking ?? "—"} · #{c.serial}{c.lock === "COMPETITION" ? " · in a game" : ""}</p>
                   </div>
@@ -118,7 +120,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Lau
       {/* The elite */}
       {elite.length > 0 && (
         <section className="relative overflow-hidden rounded-3xl border border-[#f2cf63]/40 bg-[radial-gradient(80%_120%_at_100%_0%,rgb(232_21_45/0.25),transparent_60%),#0a0a0a] p-6">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#f2cf63]">The world&apos;s top 10 · only in the £10 Rare pack</p>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#f2cf63]">The Legends · top 20 · only 10 of each · only in the £10 Rare pack</p>
           <h2 className="mt-1 text-4xl">The elite</h2>
           <ol className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
             {elite.map((p) => (

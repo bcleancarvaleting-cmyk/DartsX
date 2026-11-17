@@ -63,3 +63,19 @@ customer-facing design are darts-first and new.
   `/darts/events/[id]` (draw and results).
 
 To raise entries later: change `DARTS_ENTRY_FEE_MINOR` (new games) or the game's `entryFeeMinor`.
+
+## Circulation, packs and the daily throw — 17 Nov 2026
+
+- **Card tiers by world ranking**: Legend (top 20) 10 copies each · Top (21–50) 40 each · Tour (51+)
+  60 each — about 6,000 cards in all, minted into the pack pool when the darters load.
+- **Legends only come from the £10 Rare pack** (2 random Legends) and the Oche Shop. Contender £5
+  (a Contender ranked 21–25 + two Challengers, all Tops), Challenger £4 (two Tops), Outsider £2
+  (Tour cards, 25% chance of a Top).
+- **Fair starter stable**: an untradeable Starter edition (outside the circulation): two Contenders
+  (21–25), two Challengers (26–50), two Outsiders (51+), each pair mirrored (21+25, 26+50 …) so
+  every stable is equally strong.
+- **Simulated events use the whole 128**, so every card in every stable is in the draw.
+- **Daily throw on the pack page**: three darts once a UK day, every throw wins — 180 = 20% off
+  (5% chance), 170 = 15% (15%), Double 20 finish = 10% (80%). The result is decided on the server;
+  the code (OCHE20-XXXXXX …) is the manager's own, comes off their next pack automatically, single
+  use, valid 7 days. The biggest discount a manager holds always comes off first.

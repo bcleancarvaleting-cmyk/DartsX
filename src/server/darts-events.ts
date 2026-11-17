@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Prisma } from "@/generated/prisma/client";
-import { MAX_SUPPLY } from "@/config/tiers";
 import { highestCheckoutHolders, type DartsStatLine } from "@/domain/darts/scoring";
-import { BANDS, bandFor, dartsValueGbp } from "@/domain/darts/teams";
+import { CARD_TIERS, bandFor, dartsValueGbp, fairStarterPairs, tierFor } from "@/domain/darts/teams";
 import { DARTS_BOOSTER_KINDS } from "@/domain/darts/boosters";
-import { mintInstances } from "./cards";
+import { ensureTemplate, mintInstances } from "./cards";
 import type { Tx } from "./db";
 import { knockoutRounds, seededPairs, simulateMatch } from "@/domain/darts/simulate";
 import { db } from "./db";
@@ -16,8 +15,6 @@ export async function dartsSport() {
   return db.sport.upsert({ where: { code: "darts" }, create: { code: "darts", name: "Darts" }, update: {} });
 }
 
-/** Card tier by ranking band: Contenders (1–25) Gold, Challengers (26–50) Silver, Outsiders Bronze. */
-export const TIER_FOR_BAND = { CONTENDER: "GOLD", CHALLENGER: "SILVER", OUTSIDER: "BRONZE" } as const;
 
 /**
  * Load the darters from prisma/data/darts-rankings.json (the PDC Order of Merit): each gets their
@@ -31,7 +28,7 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
   for (const d of data.darters) {
     const parts = d.name.trim().split(/\s+/);
     const existing = await db.player.findFirst({ where: { sportId: sport.id, displayName: d.name } });
-    const tier = TIER_FOR_BAND[bandFor(d.rank)];
+    const tier = CARD_TIERS[tierFor(d.rank)];
     if (existing) {
       await db.player.update({ where: { id: existing.id }, data: { ranking: d.rank, earningsGbp: d.earningsGbp, nationality: d.country ?? existing.nationality } });
       continue;
@@ -50,9 +47,9 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
       },
     });
     await db.$transaction(async (tx) => {
-      const t = await tx.cardTemplate.create({ data: { playerId: p.id, category: tier, maxSupply: MAX_SUPPLY[tier] } });
-      // The first release: copies in the pack pool (packs skip the top 10 by ranking).
-      await mintInstances(tx, { templateId: t.id, count: d.rank <= 10 ? TOP_TEN_RELEASE : FIRST_RELEASE[tier], state: "AVAILABLE" });
+      // The whole circulation is minted into the pack pool now: Legends 10, Tops 40, Tour cards 60.
+      const t = await tx.cardTemplate.create({ data: { playerId: p.id, category: tier.category, maxSupply: tier.copies } });
+      await mintInstances(tx, { templateId: t.id, count: tier.copies, state: "AVAILABLE" });
     });
     added++;
   }
@@ -60,10 +57,6 @@ export async function seedDarters(file = join(process.cwd(), "prisma", "data", "
   return { darters: data.darters.length, added };
 }
 
-/** Copies of each darter put into the pack pool when they're first loaded. */
-export const FIRST_RELEASE = { GOLD: 50, SILVER: 100, BRONZE: 150 } as const;
-/** The world's top 10 are rarer: 25 copies each, only from the Rare pack (and the Oche Shop). */
-export const TOP_TEN_RELEASE = 25;
 
 /** Every darter's card value (≤ £5, by world ranking), recorded when it changes. */
 export async function refreshDartsValues() {
@@ -82,25 +75,24 @@ export async function refreshDartsValues() {
 }
 
 /**
- * The DartsX welcome: a stable of 6 (2 Contenders ranked 11–25, 2 Challengers, 2 Outsiders —
- * never the top 10), untradeable, plus one of every booster. Does nothing if the darters
- * aren't loaded yet, or if the manager already had it.
+ * The DartsX welcome: a fair stable of 6 — two Contenders (21–25), two Challengers (26–50) and two
+ * Outsiders (51+), each pair mirrored so every new manager's stable is equally strong (see
+ * fairStarterPairs) — plus one of every booster. Starter cards are their own untradeable edition, so
+ * they never eat into the tiny Legend/Top/Tour circulation. Does nothing if the darters aren't
+ * loaded yet, or if the manager already had it.
  */
-export async function grantDartsStarter(tx: Tx, userId: string) {
+export async function grantDartsStarter(tx: Tx, userId: string, pick: (pairs: number) => number = (n) => Math.floor(Math.random() * n)) {
   if (await tx.dartsBooster.findFirst({ where: { userId, source: "starter" } })) return { cards: [] as string[] };
   const sport = await tx.sport.findUnique({ where: { code: "darts" } });
   if (!sport) return { cards: [] as string[] };
-  const picks: Array<{ from: number; to: number }> = [
-    { from: 11, to: BANDS.CONTENDER.to! },
-    { from: BANDS.CHALLENGER.from, to: BANDS.CHALLENGER.to! },
-    { from: BANDS.OUTSIDER.from, to: 10_000 },
-  ];
+  const ranked = await tx.player.findMany({ where: { sportId: sport.id, active: true, ranking: { gt: 20 } }, select: { id: true, ranking: true } });
+  const byRank = new Map(ranked.map((p) => [p.ranking!, p]));
   const cards: string[] = [];
-  for (const band of picks) {
-    const pool = await tx.player.findMany({ where: { sportId: sport.id, active: true, ranking: { gte: band.from, lte: band.to } }, select: { id: true, templates: { where: { edition: "STANDARD", active: true }, select: { id: true } } } });
-    const shuffled = pool.filter((p) => p.templates[0]).sort(() => Math.random() - 0.5).slice(0, 2);
-    for (const p of shuffled) {
-      const [id] = await mintInstances(tx, { templateId: p.templates[0].id, count: 1, state: "HELD", ownerId: userId, tradeStatus: "NON_TRADEABLE" });
+  for (const pair of fairStarterPairs(ranked.map((p) => p.ranking!), pick)) {
+    for (const rank of pair) {
+      const p = byRank.get(rank)!;
+      const t = await ensureTemplate(tx, p.id, CARD_TIERS[tierFor(rank)].category, "STARTER");
+      const [id] = await mintInstances(tx, { templateId: t.id, count: 1, state: "HELD", ownerId: userId, tradeStatus: "NON_TRADEABLE" });
       if (!id) continue;
       await tx.cardOwnership.create({ data: { cardId: id, userId, acquiredVia: "STARTER_PACK", acquiredRef: `darts-starter:${userId}` } });
       cards.push(id);
@@ -117,6 +109,8 @@ export async function grantDartsStarter(tx: Tx, userId: string) {
  */
 async function simField(sportId: string, size: number) {
   const ranked = await db.player.findMany({ where: { sportId, active: true, ranking: { not: null } }, orderBy: { ranking: "asc" }, select: { id: true, ranking: true } });
+  // A 128 field is everyone: every card in every stable can play.
+  if (ranked.length >= size && ranked.length < size * 2) return ranked.slice(0, size);
   if (ranked.length < size * 2) throw new DomainError("FIELD", `Need ${size * 2} ranked darters — load the rankings first.`);
   const qual = Math.floor((size * 3) / 16);
   const top = ranked.slice(0, size - 2 * qual);
@@ -130,7 +124,7 @@ async function simField(sportId: string, size: number) {
 }
 
 /** A simulated knockout event from the top of the rankings (seeded 1 v 32 …). */
-export async function createSimEvent(input: { name: string; tour?: string; startsAt: Date; fieldSize?: 16 | 32 | 64; roundGapMinutes?: number }) {
+export async function createSimEvent(input: { name: string; tour?: string; startsAt: Date; fieldSize?: 16 | 32 | 64 | 128; roundGapMinutes?: number }) {
   const sport = await dartsSport();
   const size = input.fieldSize ?? 32;
   const field = await simField(sport.id, size);

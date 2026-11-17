@@ -1746,3 +1746,17 @@ model DartsBooster {
 
   @@index([userId])
 }
+
+// The pack-shop throw: three darts once a day; every throw wins a pack discount code.
+model OcheThrow {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  day       String   // UK date, YYYY-MM-DD
+  outcome   String   // 180 | 170 | D20
+  darts     Json     // the three darts, in order
+  pct       Int      // discount won
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+}

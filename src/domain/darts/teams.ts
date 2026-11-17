@@ -72,3 +72,39 @@ export function dartsValueGbp(ranking: number | null | undefined): number {
   if (!ranking) return 0.5;
   return Math.round(Math.max(0.5, Math.min(DARTS_MAX_VALUE_GBP, DARTS_MAX_VALUE_GBP - (ranking - 1) * 0.035)) * 100) / 100;
 }
+
+/**
+ * Card tiers by world ranking (17 Nov 2026) — a small circulation for a 128-darter game:
+ *  - Legend: the top 20, only 10 copies each (Gold);
+ *  - Top: ranked 21–50, 40 copies each (Silver);
+ *  - Tour: ranked 51+ (Tour Card holders), 60 copies each (Bronze).
+ */
+export type CardTier = "LEGEND" | "TOP" | "TOUR";
+export const CARD_TIERS: Record<CardTier, { label: string; from: number; to: number | null; copies: number; category: "GOLD" | "SILVER" | "BRONZE" }> = {
+  LEGEND: { label: "Legend", from: 1, to: 20, copies: 10, category: "GOLD" },
+  TOP: { label: "Top", from: 21, to: 50, copies: 40, category: "SILVER" },
+  TOUR: { label: "Tour", from: 51, to: null, copies: 60, category: "BRONZE" },
+};
+export function tierFor(ranking: number | null | undefined): CardTier {
+  if (!ranking || ranking > 50) return "TOUR";
+  return ranking <= 20 ? "LEGEND" : "TOP";
+}
+
+/**
+ * A fair starter stable: two darters from each band, paired so every new manager's stable is worth
+ * the same — one from the top half of the band and its mirror from the bottom half (21 with 25,
+ * 26 with 50, the best Outsider with the lowest…). `pick` chooses the pair (0 = the strongest pair).
+ * Contenders come from 21–25: Legends are never given away.
+ */
+export function fairStarterPairs(rankings: number[], pick: (pairs: number) => number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const bands: Array<(r: number) => boolean> = [(r) => r >= 21 && r <= 25, (r) => r >= 26 && r <= 50, (r) => r > 50];
+  for (const inBand of bands) {
+    const rs = [...new Set(rankings.filter(inBand))].sort((a, b) => a - b);
+    const pairs = Math.floor(rs.length / 2);
+    if (!pairs) continue;
+    const i = Math.min(pairs - 1, Math.max(0, pick(pairs)));
+    out.push([rs[i], rs[rs.length - 1 - i]]);
+  }
+  return out;
+}

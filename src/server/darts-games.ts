@@ -301,7 +301,8 @@ export async function runDartsJobs(now = new Date(), opts: { autoSchedule?: bool
       const start = new Date(now);
       start.setUTCDate(start.getUTCDate() + 1);
       start.setUTCHours(19, 0, 0, 0);
-      await createSimEvent({ name: `DartsX Open ${n}`, startsAt: start, fieldSize: 32, roundGapMinutes: 60 });
+      // The whole 128 rankings, so every darter in every stable is in the draw.
+      await createSimEvent({ name: `DartsX Open ${n}`, startsAt: start, fieldSize: ranked >= 128 ? 128 : ranked >= 64 ? 64 : 32, roundGapMinutes: 40 });
       out.scheduled = true;
     }
   }

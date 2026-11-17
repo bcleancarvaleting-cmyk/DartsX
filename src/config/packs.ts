@@ -382,83 +382,83 @@ FOOTBALL_PACKS.push(
 export const APP_PICK_LIST = [APP_PICK_CODES.EPL, APP_PICK_CODES.CHA, APP_PICK_CODES.LG1, APP_PICK_CODES.LG2] as const;
 
 /**
- * DartsX packs (darts sport). Product rule: the regular packs NEVER contain the world's top 10 —
- * every slot is filtered to darters ranked 11th or lower. The top 10 only come in the £10 Rare
- * pack (2 random top-10 darters, 17 Nov 2026), the Oche Shop, auctions and drops. Gold = Contenders (11–25), Silver = Challengers
- * (26–50), Bronze = Outsiders (51+).
+ * DartsX packs (darts sport). Card tiers by world ranking: Legend (top 20, 10 copies each), Top
+ * (21–50, 40 each), Tour (51+, 60 each). Legends only ever come in the £10 Rare pack (and the Oche
+ * Shop); every other pack is filtered to darters ranked 21st or lower.
+ * Prices (17 Nov 2026): Outsider £2, Challenger £4, Contender £5, Rare £10.
  */
-const NO_TOP_TEN = { minRanking: 10 } as const;
-// Prices (17 Nov 2026): Outsider £2, Challenger £4, Contender £5, Rare £10 (v2 = the new prices).
+const NO_LEGENDS = { minRanking: 20 } as const;
 export const DARTS_STARTER_PACK_CODE = "darts-starter";
 export const DARTS_RARE_PACK_CODE = "darts-rare";
 export const DARTS_PACKS: PackSkuSeed[] = [
   {
     code: DARTS_RARE_PACK_CODE,
-    version: 1,
+    version: 2,
     name: "Rare Pack",
     kind: "REGULAR",
     region: "Darts",
     priceMinor: 1000,
-    blurb: "2 random darters from the world's top 10. The only pack with the elite.",
+    blurb: "2 random Legends from the world's top 20 — only 10 of each exist.",
     config: {
       mode: "POOL",
       nonTradeable: false,
       uniquePlayers: true,
-      slots: [{ label: "World top 10", count: 2, base: "GOLD", upgrades: [], filters: { maxRanking: 10 } }],
+      slots: [{ label: "Legend", count: 2, base: "GOLD", upgrades: [], filters: { maxRanking: 20 } }],
     },
   },
   {
-    code: "darts-outsider",
-    version: 2,
-    name: "Outsider Pack",
+    code: "darts-contender",
+    version: 3,
+    name: "Contender Pack",
     kind: "REGULAR",
     region: "Darts",
-    priceMinor: 200,
-    blurb: "5 darters ranked 51+, with a chance of a Challenger.",
+    priceMinor: 500,
+    blurb: "5 darters: a Contender ranked 21–25 and two Challengers guaranteed (all Tops).",
     config: {
       mode: "POOL",
       nonTradeable: false,
       uniquePlayers: true,
       slots: [
-        { label: "Outsider", count: 4, base: "BRONZE", upgrades: [], filters: NO_TOP_TEN },
-        { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }], filters: NO_TOP_TEN },
+        { label: "Contender", count: 1, base: "SILVER", upgrades: [], filters: { minRanking: 20, maxRanking: 25 } },
+        { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: { minRanking: 25 } },
+        { label: "Outsider", count: 2, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
       ],
     },
   },
   {
     code: "darts-challenger",
-    version: 2,
+    version: 3,
     name: "Challenger Pack",
     kind: "REGULAR",
     region: "Darts",
     priceMinor: 400,
-    blurb: "5 darters ranked 26–50, with a chance of a Contender.",
+    blurb: "5 darters: two Challengers (26–50) guaranteed, with a chance of a third Top.",
     config: {
       mode: "POOL",
       nonTradeable: false,
       uniquePlayers: true,
       slots: [
-        { label: "Challenger", count: 4, base: "SILVER", upgrades: [], filters: NO_TOP_TEN },
-        { label: "Challenger+", count: 1, base: "SILVER", upgrades: [{ category: "GOLD", chanceBp: 2000 }], filters: NO_TOP_TEN },
+        { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: { minRanking: 25 } },
+        { label: "Outsider", count: 2, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2000 }], filters: NO_LEGENDS },
       ],
     },
   },
   {
-    code: "darts-contender",
-    version: 2,
-    name: "Contender Pack",
+    code: "darts-outsider",
+    version: 3,
+    name: "Outsider Pack",
     kind: "REGULAR",
     region: "Darts",
-    priceMinor: 500,
-    blurb: "5 darters: 2 Contenders (ranked 11–25) guaranteed. Never the top 10.",
+    priceMinor: 200,
+    blurb: "5 Tour-card darters ranked 51+, with a chance of a Top.",
     config: {
       mode: "POOL",
       nonTradeable: false,
       uniquePlayers: true,
       slots: [
-        { label: "Contender", count: 2, base: "GOLD", upgrades: [], filters: NO_TOP_TEN },
-        { label: "Challenger", count: 2, base: "SILVER", upgrades: [], filters: NO_TOP_TEN },
-        { label: "Outsider", count: 1, base: "BRONZE", upgrades: [], filters: NO_TOP_TEN },
+        { label: "Outsider", count: 4, base: "BRONZE", upgrades: [], filters: NO_LEGENDS },
+        { label: "Outsider+", count: 1, base: "BRONZE", upgrades: [{ category: "SILVER", chanceBp: 2500 }], filters: NO_LEGENDS },
       ],
     },
   },

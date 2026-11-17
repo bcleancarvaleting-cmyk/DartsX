@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { highestCheckoutHolders, scoreDarter, scoreTeam, type DartsStatLine } from "@/domain/darts/scoring";
-import { bandFor, packable, teamIssues } from "@/domain/darts/teams";
+import { bandFor, fairStarterPairs, packable, teamIssues, tierFor } from "@/domain/darts/teams";
 
 const line = (s: Partial<DartsStatLine>): DartsStatLine => ({ average: 0, legsWon: 0, legsLost: 0, oneEighties: 0, oneFortyPlus: 0, checkouts: [], nineDarters: 0, won: false, ...s });
 
@@ -59,5 +59,20 @@ describe("DartsX simulator", () => {
   it("draws and rounds: 1 v 32 and the knockout ladder with stage bonuses", () => {
     expect(seededPairs([1, 2, 3, 4])).toEqual([[1, 4], [2, 3]]);
     expect(knockoutRounds(32).map((r) => [r.name, r.legsToWin, r.stage])).toEqual([["Round of 32", 6, null], ["Last 16", 6, "QF"], ["Quarter-finals", 7, "SF"], ["Semi-finals", 7, "F"], ["Final", 8, "WINNER"]]);
+  });
+});
+
+describe("fair starter stables and card tiers", () => {
+  it("pairs mirror within each band, so every stable is equally strong", () => {
+    const ranks = Array.from({ length: 128 }, (_, i) => i + 1);
+    for (const k of [0, 1, 2]) {
+      const [c, ch, o] = fairStarterPairs(ranks, () => k);
+      expect(c[0] + c[1]).toBe(46);
+      expect(ch[0] + ch[1]).toBe(76);
+      expect(o[0] + o[1]).toBe(51 + 128);
+    }
+  });
+  it("Legends are the top 20, Tops 21–50, Tour 51+", () => {
+    expect([1, 20, 21, 50, 51, null].map(tierFor)).toEqual(["LEGEND", "LEGEND", "TOP", "TOP", "TOUR", "TOUR"]);
   });
 });

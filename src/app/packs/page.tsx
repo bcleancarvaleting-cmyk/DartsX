@@ -12,6 +12,8 @@ import { Countdown } from "@/components/countdown";
 import { BuyPackButton, ClaimDropButton, CreditPackButton, DevPackButton, OpenPackButton, XpPackButton } from "@/components/pack-buttons";
 import { DARTS_PACKS, FOOTBALL_PACKS } from "@/config/packs";
 import { DartsPackArt } from "@/components/darts-pack-art";
+import { OcheThrowGame } from "@/components/oche-throw-game";
+import { todaysThrow } from "@/server/oche-throw";
 import { advertisedGuarantee, cardCount, parsePackConfig } from "@/domain/packs/config";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
@@ -49,7 +51,10 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
     myBoosters(user.id),
   ]);
   const promo = await promoState(user.id);
-  const half = (m: number) => (promo.status === "claimed" ? Math.max(1, Math.round((m * (100 - promo.pct)) / 100)) : m);
+  const [today, best] = await Promise.all([todaysThrow(user.id), (await import("@/server/promo")).bestClaim(db, user.id)]);
+  // Shop prices show the biggest discount the manager holds (welcome code or an oche win).
+  const discountPct = best?.def.pct ?? 0;
+  const half = (m: number) => (discountPct ? Math.max(1, Math.round((m * (100 - discountPct)) / 100)) : m);
   const usedOn = boosters.some((b) => b.usedEntryId)
     ? new Map((await db.competitionEntry.findMany({ where: { id: { in: boosters.flatMap((b) => (b.usedEntryId ? [b.usedEntryId] : [])) } }, select: { id: true, competition: { select: { name: true } } } })).map((e) => [e.id, e.competition.name]))
     : new Map<string, string>();
@@ -65,6 +70,12 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-10">
+      <OcheThrowGame today={today} />
+      {best && (
+        <p className="rounded-2xl border border-[#12a150]/50 bg-[#12a150]/10 px-4 py-3 text-sm">
+          <b className="text-lime">{best.def.pct}% off</b> comes off your next pack <span className="text-faint">({best.c.code})</span>.
+        </p>
+      )}
       <PromoBanner code={promo.code} headline={promo.headline} status={promo.status} left={promo.left} />
       {paid && /^[0-9a-f-]{36}$/.test(paid) && <PaymentReveal orderId={paid} />}
       {!paid && cancelled && /^[0-9a-f-]{36}$/.test(cancelled) && <PaymentReveal orderId={cancelled} cancelled />}
@@ -218,7 +229,7 @@ export default async function PacksPage({ searchParams }: { searchParams: Promis
                       <div className="flex flex-1 flex-col p-5">
                         <div className="flex items-baseline justify-between gap-2">
                           <h4 className="font-display text-2xl font-bold uppercase italic">{s.name}</h4>
-                          {promo.status === "claimed" ? (
+                          {discountPct ? (
                             <span className="text-right tabular-nums">
                               <span className="mr-1.5 text-sm text-faint line-through">{gbp(s.priceMinor)}</span>
                               <b className="text-lime">{gbp(half(s.priceMinor))}</b>
